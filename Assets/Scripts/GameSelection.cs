@@ -68,6 +68,8 @@ public class GameSelection
                 tb = new TextButton(new Vector2((UIScaler.GetWidthUnits() - 10) / 2, 14.2f), new Vector2(10, 2f), "Reimport Content", delegate { Import("D2E"); });
                 tb.background.GetComponent<UnityEngine.UI.Image>().color = new Color(0, 0.03f, 0f);
             }
+            tb = new TextButton(new Vector2((UIScaler.GetWidthUnits() + 10) / 2, 14.2f), new Vector2(10, 2f), "Download Content", delegate { Download("D2E"); });
+            tb.background.GetComponent<UnityEngine.UI.Image>().color = new Color(0, 0.03f, 0f);
         }
         else // Import unavailable
         {
@@ -129,6 +131,17 @@ public class GameSelection
         Game.Get().CallAfterFrame(delegate { PerformImport(type); });
     }
 
+    // Import content
+    public void Download(string type)
+    {
+        Destroyer.Destroy();
+        // Display message
+        DialogBox db = new DialogBox(new Vector2(2, 10), new Vector2(UIScaler.GetWidthUnits() - 4, 2), "Download...");
+        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
+        // Perform importing later, to ensure message is displayed first
+        Game.Get().CallAfterFrame(delegate { PerformDownload(type); });
+    }
+
     // Start game as MoM
     public void MoM()
     {
@@ -152,6 +165,17 @@ public class GameSelection
         if (type.Equals("MoM"))
         {
             fcMoM.Import();
+        }
+        Destroyer.Dialog();
+        new GameSelection();
+    }
+
+    // Import (called once message displayed)
+    private void PerformDownload(string type)
+    {
+        if (type.Equals("D2E"))
+        {
+            fcD2E.Download();
         }
         Destroyer.Dialog();
         new GameSelection();

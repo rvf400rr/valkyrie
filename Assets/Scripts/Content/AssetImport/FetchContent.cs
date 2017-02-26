@@ -128,6 +128,21 @@ public class FetchContent {
         }
     }
 
+    // Import from app
+    public void Download()
+    {
+        // List all assets files
+        string[] assetFiles = Directory.GetFiles(ContentData.ContentPath() + "../obb", "*.assets");
+
+        // Attempt to clean up old import
+        if (!CleanImport()) return;
+        // Import from all assets files
+        foreach (string s in assetFiles)
+        {
+            Import(s);
+        }
+    }
+
     // Import one assets file
     public void Import(string assetFile)
     {
