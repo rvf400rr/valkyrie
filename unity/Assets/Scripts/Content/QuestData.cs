@@ -104,6 +104,17 @@ public class QuestData
             ValkyrieDebug.Log("No QuestText extra files");
         }
 
+        // New dictionary without entries
+        LocalizationRead.scenarioDict = new DictionaryI18n(
+            new string[1] { DictionaryI18n.FFG_LANGS }, quest.defaultLanguage, game.currentLang);
+
+        foreach (string file in localizationFiles)
+        {
+            LocalizationRead.scenarioDict.Add(
+                LocalizationRead.ReadFromFilePath(file, quest.defaultLanguage, game.currentLang)
+                );
+        }
+
         foreach (string f in iniFiles)
         {
             // Read each file
@@ -131,17 +142,6 @@ public class QuestData
                     qc.ChangeReference(kv.Key, kv.Value);
                 }
             }
-        }
-
-        // New dictionary without entries
-        LocalizationRead.scenarioDict = new DictionaryI18n(
-            new string[1] { DictionaryI18n.FFG_LANGS }, quest.defaultLanguage, game.currentLang);
-
-        foreach (string file in localizationFiles)
-        {
-            LocalizationRead.scenarioDict.Add(
-                LocalizationRead.ReadFromFilePath(file, quest.defaultLanguage, game.currentLang)
-                );
         }
     }
 
@@ -1386,7 +1386,7 @@ public class QuestData
         {
             // The initial name of a monster is the component name. It wont be translated.
             // If renamed,the translation key will be created
-            monsterName = new StringKey(null,sectionName,false);
+            monsterName = new StringKey("qst", monstername_key, true);
             activations = new string[0];
             traits = new string[0];
             typeDynamic = type;
@@ -1405,12 +1405,9 @@ public class QuestData
             
             if (data.ContainsKey("name"))
             {
-                monsterName = new StringKey(data["name"]);
+                LocalizationRead.updateScenarioText(monstername_key, data["name"]);
             }
-            else
-            {
-                monsterName = new StringKey(null,iniName, false);
-            }
+            monsterName = new StringKey("qst", monstername_key, true);
 
             traits = new string[0];
             if (data.ContainsKey("traits"))
@@ -1480,10 +1477,6 @@ public class QuestData
             if (baseMonster.Length > 0)
             {
                 r.Append("base=").AppendLine(baseMonster);
-            }
-            if (monsterName.fullKey.Length > 0)
-            {
-                r.Append("name=").AppendLine(monsterName.fullKey);
             }
             if (traits.Length > 0)
             {

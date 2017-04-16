@@ -208,8 +208,8 @@ namespace Assets.Scripts.Content
             {
                 // if not exists, we create a new one
                 entry = new EntryI18n(key,scenarioDict);
+                scenarioDict.Add(entry);
             }
-
             entry.currentLanguageString = text;
         }
 

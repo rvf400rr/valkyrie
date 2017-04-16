@@ -312,8 +312,7 @@ public class EditorComponentCustomMonster : EditorComponent
     {
         if (!nameDBE.Text.Equals(""))
         {
-            monsterComponent.monsterName = 
-                updateDictionaryTextAndGenKey(monsterComponent.monstername_key, nameDBE.Text);
+            updateDictionaryTextAndGenKey(monsterComponent.monstername_key, nameDBE.Text);
         }
     }
 
