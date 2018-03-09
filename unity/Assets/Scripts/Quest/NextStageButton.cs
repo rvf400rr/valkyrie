@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 using Assets.Scripts.Content;
+using Assets.Scripts.UI;
 
 // Next stage button is used by MoM to move between investigators and monsters
 public class NextStageButton
@@ -14,33 +15,17 @@ public class NextStageButton
     public NextStageButton()
     {
         if (Game.Get().gameType.DisplayHeroes()) return;
-        TextButton tb = new TextButton(
-            new Vector2(UIScaler.GetHCenter(10f), UIScaler.GetBottom(-2.5f)),new Vector2(4, 2), 
-            CommonStringKeys.TAB, delegate { Next(); });
-        // Untag as dialog so this isn't cleared away
-        tb.ApplyTag("questui");
-        tb.SetFont(Game.Get().gameType.GetHeaderFont());
-        tb = new TextButton(
-            new Vector2(UIScaler.GetHCenter(-14f), UIScaler.GetBottom(-2.5f)), new Vector2(4, 2), 
-            CommonStringKeys.LOG, delegate { Log(); });
-        // Untag as dialog so this isn't cleared away
-        tb.ApplyTag("questui");
-        tb.SetFont(Game.Get().gameType.GetHeaderFont());
-        tb = new TextButton(
-            new Vector2(UIScaler.GetHCenter(-10f), UIScaler.GetBottom(-2.5f)), new Vector2(4, 2), 
-            CommonStringKeys.SET, delegate { Set(); });
-        // Untag as dialog so this isn't cleared away
-        tb.ApplyTag("questui");
-        tb.SetFont(Game.Get().gameType.GetHeaderFont());
+
         Update();
     }
 
     public void Update()
     {
         // Clean up everything marked as 'uiphase'
-        foreach (GameObject go in GameObject.FindGameObjectsWithTag("uiphase"))
+        foreach (GameObject go in GameObject.FindGameObjectsWithTag(Game.UIPHASE))
             Object.Destroy(go);
 
+        Color bgColor = new Color(0.05f, 0, 0, 0.9f);
         StringKey phase;
         if (Game.Get().quest.phase == Quest.MoMPhase.horror)
         {
@@ -57,25 +42,65 @@ public class NextStageButton
         else
         {
             phase = PHASE_INVESTIGATOR;
+            bgColor = new Color(0, 0.05f, 0, 0.9f);
         }
 
-        DialogBox db;
-        db = new DialogBox(new Vector2(UIScaler.GetHCenter(-6f), UIScaler.GetBottom(-2.5f)), new Vector2(16, 2), phase);
-        db.SetFont(Game.Get().gameType.GetHeaderFont());
-        db.ApplyTag("uiphase");
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-        db.AddBorder();
+        UIElement ui = new UIElement(Game.UIPHASE);
+        ui.SetLocation(UIScaler.GetHCenter(12f), UIScaler.GetBottom(-2.5f), 4, 2);
+        ui.SetText(CommonStringKeys.TAB);
+        ui.SetFont(Game.Get().gameType.GetHeaderFont());
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        ui.SetButton(Next);
+        ui.SetBGColor(bgColor);
+        new UIElementBorder(ui);
+
+        ui = new UIElement(Game.UIPHASE);
+        ui.SetLocation(UIScaler.GetHCenter(16f), UIScaler.GetBottom(-2.5f), 4, 2);
+        ui.SetText(new StringKey("val", "ITEMS_SMALL"));
+        ui.SetFont(Game.Get().gameType.GetHeaderFont());
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        ui.SetButton(Items);
+        ui.SetBGColor(bgColor);
+        new UIElementBorder(ui);
+
+        ui = new UIElement(Game.UIPHASE);
+        ui.SetLocation(UIScaler.GetHCenter(-12f), UIScaler.GetBottom(-2.5f), 4, 2);
+        ui.SetText(CommonStringKeys.LOG);
+        ui.SetFont(Game.Get().gameType.GetHeaderFont());
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        ui.SetButton(Log);
+        ui.SetBGColor(bgColor);
+        new UIElementBorder(ui);
+
+        ui = new UIElement(Game.UIPHASE);
+        ui.SetLocation(UIScaler.GetHCenter(-8f), UIScaler.GetBottom(-2.5f), 4, 2);
+        ui.SetText(CommonStringKeys.SET);
+        ui.SetFont(Game.Get().gameType.GetHeaderFont());
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        ui.SetButton(Set);
+        ui.SetBGColor(bgColor);
+        new UIElementBorder(ui);
+
+        ui = new UIElement(Game.UIPHASE);
+        ui.SetLocation(UIScaler.GetHCenter(-4f), UIScaler.GetBottom(-2.5f), 16, 2);
+        ui.SetText(phase);
+        ui.SetBGColor(bgColor);
+        ui.SetFont(Game.Get().gameType.GetHeaderFont());
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        new UIElementBorder(ui);
     }
 
     // Button pressed
     public void Next()
     {
-        if (GameObject.FindGameObjectWithTag("dialog") != null)
+        if (GameObject.FindGameObjectWithTag(Game.DIALOG) != null)
         {
             return;
         }
 
         Game game = Game.Get();
+
+        if (game.quest.UIItemsPresent()) return;
 
         // Add to undo stack
         game.quest.Save();
@@ -91,13 +116,23 @@ public class NextStageButton
         }
         else
         {
+            game.quest.log.Add(new Quest.LogEntry(new StringKey("val", "PHASE_MYTHOS").Translate()));
             game.roundControl.HeroActivated();
         }
     }
 
+    public void Items()
+    {
+        if (GameObject.FindGameObjectWithTag(Game.DIALOG) != null)
+        {
+            return;
+        }
+        new InventoryWindowMoM();
+    }
+
     public void Log()
     {
-        if (GameObject.FindGameObjectWithTag("dialog") != null)
+        if (GameObject.FindGameObjectWithTag(Game.DIALOG) != null)
         {
             return;
         }
@@ -106,7 +141,7 @@ public class NextStageButton
 
     public void Set()
     {
-        if (GameObject.FindGameObjectWithTag("dialog") != null)
+        if (GameObject.FindGameObjectWithTag(Game.DIALOG) != null)
         {
             return;
         }

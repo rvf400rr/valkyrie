@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using Assets.Scripts.Content;
+using Assets.Scripts.UI;
 
 // Editable text box for use in quest editor
 public class QuestEditorTextEdit {
@@ -8,7 +9,7 @@ public class QuestEditorTextEdit {
     public StringKey title;
     public UnityEngine.Events.UnityAction returnCall;
     public UnityEngine.Events.UnityAction cancelCall;
-    public UnityEngine.UI.InputField iField;
+    public PanCancelInputField iField;
 
     // Create a new text box with title, initial value and call back
     public QuestEditorTextEdit(StringKey t, string initial, UnityEngine.Events.UnityAction call)
@@ -31,24 +32,27 @@ public class QuestEditorTextEdit {
         cancelCall = call;
 
         // Border
-        DialogBox db = new DialogBox(new Vector2(21, 0), new Vector2(20, 6), StringKey.NULL);
-        db.AddBorder();
+        UIElement ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-10), 1, 20, 6);
+        new UIElementBorder(ui);
 
         // Heading
-        db = new DialogBox(new Vector2(21, 0), new Vector2(20, 1), title);
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-9.5f), 1, 19, 1);
+        ui.SetText(title);
 
         Game game = Game.Get();
         GameObject textObj = new GameObject("textEdit");
         GameObject inputObj = new GameObject("textInput");
-        textObj.tag = "dialog";
-        inputObj.tag = "dialog";
+        textObj.tag = Game.DIALOG;
+        inputObj.tag = Game.DIALOG;
 
-        inputObj.transform.parent = game.uICanvas.transform;
-        textObj.transform.parent = inputObj.transform;
+        inputObj.transform.SetParent(game.uICanvas.transform);
+        textObj.transform.SetParent(inputObj.transform);
 
         RectTransform transBg = inputObj.AddComponent<RectTransform>();
-        transBg.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Top, 2 * UIScaler.GetPixelsPerUnit(), UIScaler.GetPixelsPerUnit());
-        transBg.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Left, 22 * UIScaler.GetPixelsPerUnit(), 18 * UIScaler.GetPixelsPerUnit());
+        transBg.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Top, 3 * UIScaler.GetPixelsPerUnit(), UIScaler.GetPixelsPerUnit());
+        transBg.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Left, UIScaler.GetHCenter(-9) * UIScaler.GetPixelsPerUnit(), 18 * UIScaler.GetPixelsPerUnit());
 
         RectTransform transTx = textObj.AddComponent<RectTransform>();
         transTx.SetParent(transBg);
@@ -65,17 +69,23 @@ public class QuestEditorTextEdit {
         uiText.material = uiText.font.material; 
         uiText.fontSize = UIScaler.GetSmallFont();
 
-        iField = inputObj.AddComponent<UnityEngine.UI.InputField>();
+        iField = inputObj.AddComponent<PanCancelInputField>();
         iField.textComponent = uiText;
         iField.text = value;
 
-        TextButton tb = new TextButton(new Vector2(23f, 4), new Vector2(6, 1), CommonStringKeys.OK, OKButton);
-        tb.background.GetComponent<UnityEngine.UI.Image>().color = new Color(0.0f, 0.03f, 0f);
-        tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-8), 5, 6, 1);
+        ui.SetText(CommonStringKeys.OK);
+        ui.SetBGColor(new Color(0.03f, 0.0f, 0f));
+        ui.SetButton(OKButton);
+        new UIElementBorder(ui);
 
-        tb = new TextButton(new Vector2(31f, 4), new Vector2(6, 1), CommonStringKeys.CANCEL, cancelCall);
-        tb.background.GetComponent<UnityEngine.UI.Image>().color = new Color(0.03f, 0.0f, 0f);
-        tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(2), 5, 6, 1);
+        ui.SetText(CommonStringKeys.CANCEL);
+        ui.SetBGColor(new Color(0.03f, 0.0f, 0f));
+        ui.SetButton(cancelCall);
+        new UIElementBorder(ui);
     }
 
 

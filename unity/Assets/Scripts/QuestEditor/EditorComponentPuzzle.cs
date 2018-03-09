@@ -2,9 +2,10 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using Assets.Scripts.Content;
+using Assets.Scripts.UI;
 using System.IO;
 
-public class EditorComponentPuzzle : EditorComponent
+public class EditorComponentPuzzle : EditorComponentEvent
 {
     private readonly StringKey PUZZLE = new StringKey("val", "PUZZLE");
     private readonly StringKey PUZZLE_CLASS = new StringKey("val", "PUZZLE_CLASS");
@@ -16,179 +17,192 @@ public class EditorComponentPuzzle : EditorComponent
     private readonly StringKey SELECT_IMAGE = new StringKey("val", "SELECT_IMAGE");
 
     QuestData.Puzzle puzzleComponent;
-    EditorSelectionList classList;
-    EditorSelectionList imageList;
-    EditorSelectionList skillList;
-    DialogBoxEditable levelDBE;
-    DialogBoxEditable altLevelDBE;
 
+    UIElementEditable levelUIE;
+    UIElementEditable altLevelUIE;
 
-    public EditorComponentPuzzle(string nameIn) : base()
+    public EditorComponentPuzzle(string nameIn) : base(nameIn)
     {
-        Game game = Game.Get();
-        puzzleComponent = game.quest.qd.components[nameIn] as QuestData.Puzzle;
-        component = puzzleComponent;
-        name = component.sectionName;
-        Update();
+    }
+
+    override public float AddPosition(float offset)
+    {
+        return offset;
     }
     
-    override public void Update()
+    override public float AddSubEventComponents(float offset)
     {
-        base.Update();
-        //Game game = Game.Get();
+        puzzleComponent = component as QuestData.Puzzle;
 
-        TextButton tb = new TextButton(new Vector2(0, 0), new Vector2(3, 1), PUZZLE, delegate { QuestEditorData.TypeSelect(); });
-        tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
-        tb.button.GetComponent<UnityEngine.UI.Text>().alignment = TextAnchor.MiddleRight;
-        tb.ApplyTag("editor");
-
-        tb = new TextButton(
-            new Vector2(3, 0), new Vector2(16, 1), 
-            new StringKey(null,name.Substring("Puzzle".Length),false), 
-            delegate { QuestEditorData.ListPuzzle(); });
-
-        tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
-        tb.button.GetComponent<UnityEngine.UI.Text>().alignment = TextAnchor.MiddleLeft;
-        tb.ApplyTag("editor");
-
-        tb = new TextButton(new Vector2(19, 0), new Vector2(1, 1), CommonStringKeys.E, delegate { Rename(); });
-        tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
-        tb.ApplyTag("editor");
-
-        DialogBox db = new DialogBox(new Vector2(0, 2), new Vector2(3, 1),
-            new StringKey("val", "X_COLON", PUZZLE_CLASS));
-        db.ApplyTag("editor");
+        UIElement ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(0, offset, 3, 1);
+        ui.SetText(new StringKey("val", "X_COLON", PUZZLE_CLASS));
 
         // Translate puzzle type trait
-        tb = new TextButton(new Vector2(5, 2), new Vector2(8, 1), 
-            new StringKey("val",puzzleComponent.puzzleClass), delegate { Class(); });
-        tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
-        tb.ApplyTag("editor");
+        ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(5, offset, 8, 1);
+        ui.SetText(new StringKey("val", puzzleComponent.puzzleClass));
+        ui.SetButton(delegate { Class(); });
+        new UIElementBorder(ui);
+        offset += 2;
 
-        db = new DialogBox(new Vector2(0, 4), new Vector2(4, 1),
-            new StringKey("val", "X_COLON", CommonStringKeys.SKILL));
-        db.ApplyTag("editor");
+        ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(0, offset, 4, 1);
+        ui.SetText(new StringKey("val", "X_COLON", CommonStringKeys.SKILL));
 
-        tb = new TextButton(new Vector2(5, 4), new Vector2(6, 1), 
-            new StringKey(null, puzzleComponent.skill,false), delegate { Skill(); });
-        tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
-        tb.ApplyTag("editor");
+        ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(5, offset, 6, 1);
+        ui.SetText(puzzleComponent.skill);
+        ui.SetButton(delegate { Skill(); });
+        new UIElementBorder(ui);
+        offset += 2;
 
-        db = new DialogBox(new Vector2(0, 6), new Vector2(4, 1),
-            new StringKey("val", "X_COLON", PUZZLE_LEVEL));
-        db.ApplyTag("editor");
+        ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(0, offset, 4, 1);
+        ui.SetText(new StringKey("val", "X_COLON", PUZZLE_LEVEL));
 
-        // Numbers dont need translation
-        levelDBE = new DialogBoxEditable(new Vector2(5, 6), new Vector2(2, 1), 
-            puzzleComponent.puzzleLevel.ToString(), delegate { UpdateLevel(); });
-        levelDBE.ApplyTag("editor");
-        levelDBE.AddBorder();
+        levelUIE = new UIElementEditable(Game.EDITOR, scrollArea.GetScrollTransform());
+        levelUIE.SetLocation(5, offset, 2, 1);
+        levelUIE.SetText(puzzleComponent.puzzleLevel.ToString());
+        levelUIE.SetSingleLine();
+        levelUIE.SetButton(delegate { UpdateLevel(); });
+        new UIElementBorder(levelUIE);
+        offset += 2;
 
-        if (!puzzleComponent.puzzleClass.Equals("slide"))
+        if (puzzleComponent.puzzleClass.Equals("image") || puzzleComponent.puzzleClass.Equals("code"))
         {
-            db = new DialogBox(new Vector2(0, 8), new Vector2(5, 1),
-                new StringKey("val", "X_COLON", PUZZLE_ALT_LEVEL));
-            db.ApplyTag("editor");
+            ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+            ui.SetLocation(0, offset, 5, 1);
+            ui.SetText(new StringKey("val", "X_COLON", PUZZLE_ALT_LEVEL));
 
-            // Numbers dont need translation
-            altLevelDBE = new DialogBoxEditable(new Vector2(5, 8), new Vector2(2, 1), 
-                puzzleComponent.puzzleAltLevel.ToString(), delegate { UpdateAltLevel(); });
-            altLevelDBE.ApplyTag("editor");
-            altLevelDBE.AddBorder();
+            altLevelUIE = new UIElementEditable(Game.EDITOR, scrollArea.GetScrollTransform());
+            altLevelUIE.SetLocation(5, offset, 2, 1);
+            altLevelUIE.SetText(puzzleComponent.puzzleAltLevel.ToString());
+            altLevelUIE.SetSingleLine();
+            altLevelUIE.SetButton(delegate { UpdateAltLevel(); });
+            new UIElementBorder(altLevelUIE);
+            offset += 2;
 
-            if (puzzleComponent.puzzleClass.Equals("image"))
-            {
-                db = new DialogBox(new Vector2(0, 10), new Vector2(3, 1),
-                    new StringKey("val", "X_COLON", IMAGE));
-                db.ApplyTag("editor");
+            ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+            ui.SetLocation(0, offset, 3, 1);
+            ui.SetText(new StringKey("val", "X_COLON", IMAGE));
 
-                tb = new TextButton(new Vector2(5, 10), new Vector2(8, 1), 
-                    new StringKey(null, puzzleComponent.imageType,false), delegate { Image(); });
-                tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
-                tb.ApplyTag("editor");
-            }
+            ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+            ui.SetLocation(5, offset, 8, 1);
+            ui.SetText(puzzleComponent.imageType);
+            ui.SetButton(delegate { Image(); });
+            new UIElementBorder(ui);
+            offset += 2;
         }
 
-        tb = new TextButton(new Vector2(0, 12), new Vector2(8, 1), CommonStringKeys.EVENT, delegate { QuestEditorData.SelectAsEvent(name); });
-        tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
-        tb.ApplyTag("editor");
+        return offset;
+    }
+    
+    override public float AddEventDialog(float offset)
+    {
+        return offset;
+    }
+
+    override public void Highlight()
+    {
     }
 
     public void Class()
     {
-        List<EditorSelectionList.SelectionListEntry> puzzleClass = new List<EditorSelectionList.SelectionListEntry>();
-        puzzleClass.Add(EditorSelectionList.SelectionListEntry.BuildNameKeyItem("slide"));
-        puzzleClass.Add(EditorSelectionList.SelectionListEntry.BuildNameKeyItem("code"));
-        puzzleClass.Add(EditorSelectionList.SelectionListEntry.BuildNameKeyItem("image"));
-        classList = new EditorSelectionList(PUZZLE_CLASS_SELECT, puzzleClass, delegate { SelectClass(); });
-        classList.SelectItem();
+        if (GameObject.FindGameObjectWithTag(Game.DIALOG) != null)
+        {
+            return;
+        }
+
+        UIWindowSelectionList select = new UIWindowSelectionList(SelectClass, PUZZLE_CLASS_SELECT);
+        select.AddItem(new StringKey("val", "slide"));
+        select.AddItem(new StringKey("val", "code"));
+        select.AddItem(new StringKey("val", "image"));
+        select.AddItem(new StringKey("val", "tower"));
+        select.Draw();
     }
 
-    public void SelectClass()
+    public void SelectClass(string className)
     {
-        // the selection has the key (ie:{val:PUZZLE_SLIDE_CLASS}) so we can build the StringKey.
-        puzzleComponent.puzzleClass = classList.selection;
-        if (!puzzleComponent.puzzleClass.Equals("image"))
+        if (!puzzleComponent.puzzleClass.Equals(className))
         {
             puzzleComponent.imageType = "";
         }
+        // the selection has the key (ie:{val:PUZZLE_SLIDE_CLASS}) so we can build the StringKey.
+        puzzleComponent.puzzleClass = className;
         Update();
     }
 
     public void Skill()
     {
-        List<EditorSelectionList.SelectionListEntry> skill = new List<EditorSelectionList.SelectionListEntry>();
-        skill.Add(new EditorSelectionList.SelectionListEntry("{will} " + EventManager.SymbolReplace("{will}")));
-        skill.Add(new EditorSelectionList.SelectionListEntry("{strength} " + EventManager.SymbolReplace("{strength}")));
-        skill.Add(new EditorSelectionList.SelectionListEntry("{agility} " + EventManager.SymbolReplace("{agility}")));
-        skill.Add(new EditorSelectionList.SelectionListEntry("{lore} " + EventManager.SymbolReplace("{lore}")));
-        skill.Add(new EditorSelectionList.SelectionListEntry("{influence} " + EventManager.SymbolReplace("{influence}")));
-        skill.Add(new EditorSelectionList.SelectionListEntry("{observation} " + EventManager.SymbolReplace("{observation}")));
-        skillList = new EditorSelectionList(PUZZLE_SELECT_SKILL, skill, delegate { SelectSkill(); });
-        skillList.SelectItem();
+        if (GameObject.FindGameObjectWithTag(Game.DIALOG) != null)
+        {
+            return;
+        }
+
+        UIWindowSelectionList select = new UIWindowSelectionList(SelectSkill, PUZZLE_SELECT_SKILL);
+        select.AddItem("{will} " + EventManager.OutputSymbolReplace("{will}"));
+        select.AddItem("{strength} " + EventManager.OutputSymbolReplace("{strength}"));
+        select.AddItem("{agility} " + EventManager.OutputSymbolReplace("{agility}"));
+        select.AddItem("{lore} " + EventManager.OutputSymbolReplace("{lore}"));
+        select.AddItem("{influence} " + EventManager.OutputSymbolReplace("{influence}"));
+        select.AddItem("{observation} " + EventManager.OutputSymbolReplace("{observation}"));
+        select.Draw();
     }
 
-    public void SelectSkill()
+    public void SelectSkill(string skill)
     {
-        puzzleComponent.skill = skillList.selection;
+        puzzleComponent.skill = skill.Substring(0, skill.IndexOf(" "));
         Update();
     }
 
     public void UpdateLevel()
     {
-        int.TryParse(levelDBE.Text, out puzzleComponent.puzzleLevel);
+        int.TryParse(levelUIE.GetText(), out puzzleComponent.puzzleLevel);
         Update();
     }
 
     public void UpdateAltLevel()
     {
-        int.TryParse(altLevelDBE.Text, out puzzleComponent.puzzleAltLevel);
+        int.TryParse(altLevelUIE.GetText(), out puzzleComponent.puzzleAltLevel);
         Update();
     }
     
     public void Image()
     {
+        if (puzzleComponent.puzzleClass.Equals("code"))
+        {
+            UIWindowSelectionList selectType = new UIWindowSelectionList(SelectImage, SELECT_IMAGE.Translate());
+            selectType.AddItem("{NUMBERS}", "");
+            selectType.AddItem(new StringKey("val", "SYMBOL").Translate(), "symbol");
+            selectType.AddItem(new StringKey("val", "ELEMENT").Translate(), "element");
+            selectType.Draw();
+            return;
+        }
+
+        UIWindowSelectionListImage select = new UIWindowSelectionListImage(SelectImage, SELECT_IMAGE.Translate());
+
+        Dictionary<string, IEnumerable<string>> traits = new Dictionary<string, IEnumerable<string>>();
+        traits.Add(new StringKey("val", "SOURCE").Translate(), new string[] { new StringKey("val", "FILE").Translate() });
         string relativePath = new FileInfo(Path.GetDirectoryName(Game.Get().quest.qd.questPath)).FullName;
-        List<EditorSelectionList.SelectionListEntry> puzzleImage = new List<EditorSelectionList.SelectionListEntry>();
         foreach (string s in Directory.GetFiles(relativePath, "*.png", SearchOption.AllDirectories))
         {
-            puzzleImage.Add(new EditorSelectionList.SelectionListEntry(s.Substring(relativePath.Length + 1), "File"));
+            select.AddItem(s.Substring(relativePath.Length + 1), traits);
         }
         foreach (string s in Directory.GetFiles(relativePath, "*.jpg", SearchOption.AllDirectories))
         {
-            puzzleImage.Add(new EditorSelectionList.SelectionListEntry(s.Substring(relativePath.Length + 1), "File"));
+            select.AddItem(s.Substring(relativePath.Length + 1), traits);
         }
         foreach (KeyValuePair<string, PuzzleData> kv in Game.Get().cd.puzzles)
         {
-            puzzleImage.Add(new EditorSelectionList.SelectionListEntry(kv.Key, "MoM"));
+            select.AddItem(kv.Value);
         }
-        imageList = new EditorSelectionList(SELECT_IMAGE, puzzleImage, delegate { SelectImage(); });
-        imageList.SelectItem();
+        select.Draw();
     }
 
-    public void SelectImage()
+    public void SelectImage(string image)
     {
-        puzzleComponent.imageType = imageList.selection;
+        puzzleComponent.imageType = image;
         Update();
     }
 }

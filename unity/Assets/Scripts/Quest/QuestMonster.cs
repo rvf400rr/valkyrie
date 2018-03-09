@@ -1,16 +1,19 @@
 ﻿using Assets.Scripts.Content;
 using System.Collections.Generic;
+using System.IO;
 
 // A monster quest class that is defined by the quest
 public class QuestMonster : MonsterData
 {
     public bool useMonsterTypeActivations = false;
+    public QuestData.CustomMonster cMonster;
     public string derivedType = "";
 
     // Construct with quest data
     public QuestMonster(QuestData.CustomMonster qm) : base()
     {
         Game game = Game.Get();
+        cMonster = qm;
 
         // Get base derived monster type
         MonsterData baseObject = null;
@@ -47,32 +50,41 @@ public class QuestMonster : MonsterData
         }
 
         // Read info from quest data or base type
-        info = new StringKey(null, EventManager.SymbolReplace(qm.info.Translate()), false);
+        info = new StringKey(null, EventManager.OutputSymbolReplace(qm.info.Translate()), false);
         if (!qm.info.KeyExists() && baseObject != null)
         {
             info = baseObject.info;
         }
 
-        // Read image from quest data or base type
         image = qm.GetImagePath();
-        if (image.Length == 0 && baseObject != null)
+        if (image.Length == 0)
         {
-            image = baseObject.image;
+            if (baseObject != null)
+            {
+                image = baseObject.image;
+            }
+        }
+        else
+        {
+            image = Path.GetDirectoryName(game.quest.qd.questPath) + "/" + image;
         }
 
         // Read placement image from quest data or base type
         imagePlace = qm.GetImagePlacePath();
-        if (imagePlace.Length == 0 && baseObject != null)
+        if (imagePlace.Length == 0)
         {
-            imagePlace = baseObject.image;
+            if (baseObject != null)
+            {
+                imagePlace = baseObject.image;
+            }
+            else
+            {
+                imagePlace = image;
+            }
         }
-        if (imagePlace.Length == 0) imagePlace = image;
-
-        // Read activations  from quest data or base type
-        activations = qm.activations;
-        if (activations.Length == 0 && baseObject != null)
+        else
         {
-            useMonsterTypeActivations = true;
+            imagePlace = Path.GetDirectoryName(game.quest.qd.questPath) + "/" + imagePlace;
         }
 
         // Read activations  from quest data or base type
@@ -88,6 +100,17 @@ public class QuestMonster : MonsterData
         {
             healthBase = baseObject.healthBase;
             healthPerHero = baseObject.healthPerHero;
+        }
+
+        horror = qm.horror;
+        if (!qm.horrorDefined && baseObject != null)
+        {
+            horror = baseObject.horror;
+        }
+        awareness = qm.awareness;
+        if (!qm.awarenessDefined && baseObject != null)
+        {
+            awareness = baseObject.awareness;
         }
     }
 }

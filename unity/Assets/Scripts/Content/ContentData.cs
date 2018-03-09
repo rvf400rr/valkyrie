@@ -5,14 +5,17 @@ using System.IO;
 using Assets.Scripts.Content;
 using ValkyrieTools;
 
-// This class reads and stores all of the content for a base game and expansions
+/// <summary>
+/// This class reads and stores all of the content for a base game and expansions.</summary>
 public class ContentData {
 
     public HashSet<string> loadedPacks;
     public List<ContentPack> allPacks;
     public Dictionary<string, PackTypeData> packTypes;
     public Dictionary<string, TileSideData> tileSides;
-    public Dictionary<string, HeroData> heros;
+    public Dictionary<string, HeroData> heroes;
+    public Dictionary<string, ClassData> classes;
+    public Dictionary<string, SkillData> skills;
     public Dictionary<string, ItemData> items;
     public Dictionary<string, MonsterData> monsters;
     public Dictionary<string, ActivationData> activations;
@@ -22,19 +25,59 @@ public class ContentData {
     public Dictionary<string, TokenData> tokens;
     public Dictionary<string, PerilData> perils;
     public Dictionary<string, PuzzleData> puzzles;
+    public Dictionary<string, ImageData> images;
     public Dictionary<string, AudioData> audio;
 
+    // textureCache is used to store previously loaded textures so they are faster next time
+    // For the editor all defined images are loaded, requires ~1GB RAM
+    // For quests only used tiles/tokens will be loaded
+    public static Dictionary<string, Texture2D> textureCache;
+
+    /// <summary>
+    /// Get the path where game content is defined.</summary>
+    /// <returns>
+    /// The path as a string with a trailing '/'.</returns>
     public static string ContentPath()
     {
-        if (Application.isEditor)
+        if (Application.platform == RuntimePlatform.Android)
         {
-            // If running through unity then we assume you are using the git content, with the project at the same level
-            return Application.dataPath + "/../../content/";
+            return Application.persistentDataPath + "/assets/content/";
         }
-        return Application.dataPath + "/content/";
+        return Application.streamingAssetsPath + "/content/";
     }
 
-    // Constructor takes a path in which to look for content
+    /// <summary>
+    /// Get the path where ffg app content is imported.</summary>
+    /// <returns>
+    /// The path as a string without a trailing '/'.</returns>
+    public static string ImportPath()
+    {
+        return Game.AppData() + "/" + Game.Get().gameType.TypeName() + "/import";
+    }
+
+    public static string TempPath
+    {
+        get
+        {
+            if (Application.platform == RuntimePlatform.Android)
+            {
+                return Path.Combine(Game.AppData(), "temp");
+            }
+            return Path.GetTempPath();
+        }
+    }
+
+    public static string TempValyriePath
+    {
+        get
+        {
+            return Path.Combine(TempPath, "Valkyrie");
+        }
+    }
+
+    /// <summary>
+    /// Seach the provided path for all content packs and read meta data.</summary>
+    /// <param name="path">Path to search for content packs.</param>
     public ContentData(string path)
     {
         // This is pack type for sorting packs
@@ -47,7 +90,13 @@ public class ContentData {
         tileSides = new Dictionary<string, TileSideData>();
 
         // Available heros
-        heros = new Dictionary<string, HeroData>();
+        heroes = new Dictionary<string, HeroData>();
+
+        // Available classes
+        classes = new Dictionary<string, ClassData>();
+
+        // Available skills
+        skills = new Dictionary<string, SkillData>();
 
         // Available items
         items = new Dictionary<string, ItemData>();
@@ -78,6 +127,9 @@ public class ContentData {
 
         // This has all avilable puzzle images
         puzzles = new Dictionary<string, PuzzleData>();
+
+        // This has all avilable general images
+        images = new Dictionary<string, ImageData>();
 
         // This has all avilable puzzle images
         audio = new Dictionary<string, AudioData>();
@@ -118,7 +170,14 @@ public class ContentData {
             pack.id = d.Get("ContentPack", "id");
 
             // If this is invalid we will just handle it later, not fatal
-            pack.image = path + "/" + d.Get("ContentPack", "image");
+            if (d.Get("ContentPack", "image").IndexOf("{import}") == 0)
+            {
+                pack.image = ContentData.ImportPath() + d.Get("ContentPack", "image").Substring(8);
+            }
+            else
+            {
+                pack.image = path + "/" + d.Get("ContentPack", "image");
+            }
 
             // Black description isn't fatal
             pack.description = d.Get("ContentPack", "description");
@@ -150,6 +209,26 @@ public class ContentData {
             // Save list of files
             pack.iniFiles = files;
 
+            // Get all the other ini files in the pack
+            Dictionary<string, List<string>> dictFiles = new Dictionary<string, List<string>>();
+            // No extra files is valid
+            if (d.Get("LanguageData") != null)
+            {
+                foreach (string s in d.Get("LanguageData").Keys)
+                {
+                    int firstSpace = s.IndexOf(' ');
+                    string id = s.Substring(0, firstSpace);
+                    string file = s.Substring(firstSpace + 1);
+                    if (!dictFiles.ContainsKey(id))
+                    {
+                        dictFiles.Add(id, new List<string>());
+                    }
+                    dictFiles[id].Add(path + "/" + file);
+                }
+            }
+            // Save list of files
+            pack.localizationFiles = dictFiles;
+
             // Add content pack
             allPacks.Add(pack);
 
@@ -174,7 +253,7 @@ public class ContentData {
         {
             if (cp.id.Equals(id))
             {
-                return new StringKey(null,cp.name,false).Translate();
+                return new StringKey(cp.name).Translate();
             }
         }
         return "";
@@ -232,6 +311,18 @@ public class ContentData {
                 AddContent(section.Key, section.Value, Path.GetDirectoryName(ini), cp.id);
             }
         }
+
+        foreach(KeyValuePair<string, List<string>> kv in cp.localizationFiles)
+        {
+            DictionaryI18n packageDict = new DictionaryI18n();
+            foreach(string file in kv.Value)
+            {
+                packageDict.AddDataFromFile(file);
+            }
+
+            LocalizationRead.AddDictionary(kv.Key, packageDict);
+        }
+
         loadedPacks.Add(cp.id);
 
         foreach (string s in cp.clone)
@@ -305,21 +396,73 @@ public class ContentData {
             if (d.name.Equals(""))
                 return;
             // If we don't already have one then add this
-            if (!heros.ContainsKey(name))
+            if (!heroes.ContainsKey(name))
             {
-                heros.Add(name, d);
+                heroes.Add(name, d);
                 d.sets.Add(packID);
             }
             // If we do replace if this has higher priority
-            else if (heros[name].priority < d.priority)
+            else if (heroes[name].priority < d.priority)
             {
-                heros.Remove(name);
-                heros.Add(name, d);
+                heroes.Remove(name);
+                heroes.Add(name, d);
             }
             // items of the same priority belong to multiple packs
-            else if (heros[name].priority == d.priority)
+            else if (heroes[name].priority == d.priority)
             {
-                heros[name].sets.Add(packID);
+                heroes[name].sets.Add(packID);
+            }
+        }
+
+        // Is this a "Class" entry?
+        if (name.IndexOf(ClassData.type) == 0)
+        {
+            ClassData d = new ClassData(name, content, path);
+            // Ignore invalid entry
+            if (d.name.Equals(""))
+                return;
+            // If we don't already have one then add this
+            if (!classes.ContainsKey(name))
+            {
+                classes.Add(name, d);
+                d.sets.Add(packID);
+            }
+            // If we do replace if this has higher priority
+            else if (classes[name].priority < d.priority)
+            {
+                classes.Remove(name);
+                classes.Add(name, d);
+            }
+            // items of the same priority belong to multiple packs
+            else if (classes[name].priority == d.priority)
+            {
+                classes[name].sets.Add(packID);
+            }
+        }
+
+        // Is this a "Skill" entry?
+        if (name.IndexOf(SkillData.type) == 0)
+        {
+            SkillData d = new SkillData(name, content, path);
+            // Ignore invalid entry
+            if (d.name.Equals(""))
+                return;
+            // If we don't already have one then add this
+            if (!skills.ContainsKey(name))
+            {
+                skills.Add(name, d);
+                d.sets.Add(packID);
+            }
+            // If we do replace if this has higher priority
+            else if (skills[name].priority < d.priority)
+            {
+                skills.Remove(name);
+                skills.Add(name, d);
+            }
+            // items of the same priority belong to multiple packs
+            else if (skills[name].priority == d.priority)
+            {
+                skills[name].sets.Add(packID);
             }
         }
 
@@ -540,12 +683,44 @@ public class ContentData {
             if (!puzzles.ContainsKey(name))
             {
                 puzzles.Add(name, d);
+                d.sets.Add(packID);
             }
             // If we do replace if this has higher priority
             else if (puzzles[name].priority < d.priority)
             {
                 puzzles.Remove(name);
                 puzzles.Add(name, d);
+            }
+            // items of the same priority belong to multiple packs
+            else if (puzzles[name].priority == d.priority)
+            {
+                puzzles[name].sets.Add(packID);
+            }
+        }
+
+        // Is this a "Image" entry?
+        if (name.IndexOf(ImageData.type) == 0)
+        {
+            ImageData d = new ImageData(name, content, path);
+            // Ignore invalid entry
+            if (d.name.Equals(""))
+                return;
+            // If we don't already have one then add this
+            if (!images.ContainsKey(name))
+            {
+                images.Add(name, d);
+                d.sets.Add(packID);
+            }
+            // If we do replace if this has higher priority
+            else if (images[name].priority < d.priority)
+            {
+                images.Remove(name);
+                images.Add(name, d);
+            }
+            // items of the same priority belong to multiple packs
+            else if (images[name].priority == d.priority)
+            {
+                images[name].sets.Add(packID);
             }
         }
 
@@ -579,6 +754,7 @@ public class ContentData {
         public string id;
         public string type;
         public List<string> iniFiles;
+        public Dictionary<string, List<string>> localizationFiles;
         public List<string> clone;
     }
 
@@ -596,64 +772,119 @@ public class ContentData {
         WWW www = null;
         Texture2D texture = null;
 
-        // Unity doesn't support dds directly, have to do hackery
-        if (Path.GetExtension(file).Equals(".dds"))
+        if (textureCache == null)
         {
-            // Read the data
-            byte[] ddsBytes = null;
-            try
-            {
-                ddsBytes = File.ReadAllBytes(file);
-            }
-            catch (System.Exception)
-            {
-                ValkyrieDebug.Log("Warning: DDS Image missing: " + file);
-                return null;
-            }
-            // Check for valid header
-            byte ddsSizeCheck = ddsBytes[4];
-            if (ddsSizeCheck != 124)
-            {
-                ValkyrieDebug.Log("Warning: Image invalid: " + file);
-                return null;
-            }
+            textureCache = new Dictionary<string, Texture2D>();
+        }
 
-            // Extract dimensions
-            int height = ddsBytes[13] * 256 + ddsBytes[12];
-            int width = ddsBytes[17] * 256 + ddsBytes[16];
-
-            // Copy image data (skip header)
-            int DDS_HEADER_SIZE = 128;
-            byte[] dxtBytes = new byte[ddsBytes.Length - DDS_HEADER_SIZE];
-            System.Buffer.BlockCopy(ddsBytes, DDS_HEADER_SIZE, dxtBytes, 0, ddsBytes.Length - DDS_HEADER_SIZE);
-
-            // Create empty texture
-            texture = new Texture2D(width, height, TextureFormat.DXT5, false);
-            // Load data into texture
-            try
-            {
-                texture.LoadRawTextureData(dxtBytes);
-            }
-            catch (System.Exception)
-            {
-                texture = new Texture2D(width, height, TextureFormat.DXT1, false);
-                texture.LoadRawTextureData(dxtBytes);
-            }
-            texture.Apply();
+        if (textureCache.ContainsKey(file))
+        {
+            texture = textureCache[file];
         }
         else
-        // If the image isn't DDS just use unity file load
         {
-            try
+            // Unity doesn't support dds directly, have to do hackery
+            if (Path.GetExtension(file).Equals(".dds"))
             {
-                www = new WWW(@"file://" + imagePath);
-                texture = new Texture2D(256, 256, TextureFormat.DXT5, false);
-                www.LoadImageIntoTexture(texture);
+                // Read the data
+                byte[] ddsBytes = null;
+                try
+                {
+                    ddsBytes = File.ReadAllBytes(file);
+                }
+                catch (System.Exception)
+                {
+                    ValkyrieDebug.Log("Warning: DDS Image missing: " + file);
+                    return null;
+                }
+                // Check for valid header
+                byte ddsSizeCheck = ddsBytes[4];
+                if (ddsSizeCheck != 124)
+                {
+                    ValkyrieDebug.Log("Warning: Image invalid: " + file);
+                    return null;
+                }
+
+                // Extract dimensions
+                int height = ddsBytes[13] * 256 + ddsBytes[12];
+                int width = ddsBytes[17] * 256 + ddsBytes[16];
+
+                /*20-23 pit
+                 * 24-27 dep
+                 * 28-31 mm
+                 * 32-35 al
+                 * 36-39 res
+                 * 40-43 sur
+                 * 44-51 over
+                 * 52-59 des
+                 * 60-67 sov
+                 * 68-75 sblt
+                 * 76-79 size
+                 * 80-83 flags
+                 * 84-87 fourCC
+                 * 88-91 bpp
+                 * 92-95 red
+                 */
+
+                char[] type = new char[4];
+                type[0] = (char)ddsBytes[84];
+                type[1] = (char)ddsBytes[85];
+                type[2] = (char)ddsBytes[86];
+                type[3] = (char)ddsBytes[87];
+
+                // Copy image data (skip header)
+                int DDS_HEADER_SIZE = 128;
+                byte[] dxtBytes = new byte[ddsBytes.Length - DDS_HEADER_SIZE];
+                System.Buffer.BlockCopy(ddsBytes, DDS_HEADER_SIZE, dxtBytes, 0, ddsBytes.Length - DDS_HEADER_SIZE);
+
+                if (ddsBytes[87] == '5')
+                {
+                    texture = new Texture2D(width, height, TextureFormat.DXT5, false);
+                }
+                else if (ddsBytes[87] == '1')
+                {
+                    texture = new Texture2D(width, height, TextureFormat.DXT1, false);
+                }
+                else if (ddsBytes[88] == 32)
+                {
+                    if (ddsBytes[92] == 0)
+                    {
+                        texture = new Texture2D(width, height, TextureFormat.BGRA32, false);
+                    }
+                    else
+                    {
+                        texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+                    }
+                }
+                else if (ddsBytes[88] == 24)
+                {
+                    texture = new Texture2D(width, height, TextureFormat.RGB24, false);
+                }
+                else
+                {
+                    ValkyrieDebug.Log("Warning: Image invalid: " + file);
+                }
+                texture.LoadRawTextureData(dxtBytes);
+                texture.Apply();
             }
-            catch (System.Exception)
+            else
+            // If the image isn't DDS just use unity file load
             {
-                ValkyrieDebug.Log("Warning: Image missing: " + file);
-                return null;
+                try
+                {
+                    www = new WWW(@"file://" + imagePath);
+                    texture = new Texture2D(256, 256, TextureFormat.DXT5, false);
+                    www.LoadImageIntoTexture(texture);
+                }
+                catch (System.Exception)
+                {
+                    ValkyrieDebug.Log("Warning: Image missing: " + file);
+                    return null;
+                }
+            }
+            if (!file.Contains(TempPath))
+            {
+                textureCache.Add(file, texture);
             }
         }
         // Get whole image
@@ -749,11 +980,59 @@ public class HeroData : GenericData
     }
 }
 
+// Class for Class specific data
+public class ClassData : GenericData
+{
+    public string archetype = "warrior";
+    public string hybridArchetype = "";
+    public static new string type = "Class";
+    public List<string> items;
+
+    public ClassData(string name, Dictionary<string, string> content, string path) : base(name, content, path, type)
+    {
+        // Get archetype
+        if (content.ContainsKey("archetype"))
+        {
+            archetype = content["archetype"];
+        }
+        // Get hybridArchetype
+        if (content.ContainsKey("hybridarchetype"))
+        {
+            hybridArchetype = content["hybridarchetype"];
+        }
+        // Get starting item
+        items = new List<string>();
+        if (content.ContainsKey("items"))
+        {
+            items.AddRange(content["items"].Split(" ".ToCharArray(), System.StringSplitOptions.RemoveEmptyEntries));
+        }
+    }
+}
+
+// Class for Class specific data
+public class SkillData : GenericData
+{
+    public static new string type = "Skill";
+    public int xp = 0;
+
+    public SkillData(string name, Dictionary<string, string> content, string path) : base(name, content, path, type)
+    {
+        // Get archetype
+        if (content.ContainsKey("xp"))
+        {
+            int.TryParse(content["xp"], out xp);
+        }
+    }
+}
+
 // Class for Item specific data
 public class ItemData : GenericData
 {
     public static new string type = "Item";
     public bool unique = false;
+    public int price = 0;
+    public int minFame = -1;
+    public int maxFame = -1;
 
     public ItemData(string name, Dictionary<string, string> content, string path) : base(name, content, path, type)
     {
@@ -761,6 +1040,29 @@ public class ItemData : GenericData
         {
             unique = true;
         }
+        if (content.ContainsKey("price"))
+        {
+            int.TryParse(content["price"], out price);
+        }
+        if (content.ContainsKey("minfame"))
+        {
+            minFame = Fame(content["maxfame"]);
+        }
+        if (content.ContainsKey("maxfame"))
+        {
+            maxFame = Fame(content["maxfame"]);
+        }
+    }
+
+    public static int Fame(string name)
+    {
+        if (name.Equals("insignificant")) return 1;
+        if (name.Equals("noteworthy")) return 2;
+        if (name.Equals("impressive")) return 3;
+        if (name.Equals("celebrated")) return 4;
+        if (name.Equals("heroic")) return 5;
+        if (name.Equals("legendary")) return 6;
+        return 0;
     }
 }
 
@@ -773,6 +1075,8 @@ public class MonsterData : GenericData
     public string[] activations;
     public float healthBase = 0;
     public float healthPerHero = 0;
+    public int horror = 0;
+    public int awareness = 0;
     
     // This constuctor only exists for the quest version of this class to use to do nothing
     public MonsterData()
@@ -788,7 +1092,14 @@ public class MonsterData : GenericData
         }
         if (content.ContainsKey("imageplace"))
         {
-            imagePlace = path + "/" + content["imageplace"];
+            if (content["imageplace"].IndexOf("{import}") == 0)
+            {
+                imagePlace = ContentData.ImportPath() + content["imageplace"].Substring(8);
+            }
+            else
+            {
+                imagePlace = path + "/" + content["imageplace"];
+            }
         }
         else // No image is a valid condition
         {
@@ -806,6 +1117,14 @@ public class MonsterData : GenericData
         if (content.ContainsKey("healthperhero"))
         {
             float.TryParse(content["healthperhero"], out healthPerHero);
+        }
+        if (content.ContainsKey("horror"))
+        {
+            int.TryParse(content["horror"], out horror);
+        }
+        if (content.ContainsKey("awareness"))
+        {
+            int.TryParse(content["awareness"], out awareness);
         }
     }
 }
@@ -874,6 +1193,16 @@ public class TokenData : GenericData
     public static new string type = "Token";
 
     public TokenData(string name, Dictionary<string, string> content, string path) : base(name, content, path, type)
+    {
+        init(content);
+    }
+
+    public TokenData(string name, Dictionary<string, string> content, string path, string typeIn) : base(name, content, path, typeIn)
+    {
+        init(content);
+    }
+
+    public void init(Dictionary<string, string> content)
     {
         if (content.ContainsKey("x"))
         {
@@ -1002,6 +1331,16 @@ public class PuzzleData : GenericData
     }
 }
 
+// Class for images
+public class ImageData : TokenData
+{
+    public static new string type = "Image";
+
+    public ImageData(string name, Dictionary<string, string> content, string path) : base(name, content, path, type)
+    {
+    }
+}
+
 // Class for Audio
 public class AudioData : GenericData
 {
@@ -1012,7 +1351,14 @@ public class AudioData : GenericData
     {
         if (content.ContainsKey("file"))
         {
-            file = path + "/" + content["file"];
+            if (content["file"].IndexOf("{import}") == 0)
+            {
+                file = ContentData.ImportPath() + content["file"].Substring(8);
+            }
+            else
+            {
+                file = path + "/" + content["file"];
+            }
         }
     }
 }
@@ -1054,8 +1400,6 @@ public class GenericData
             name = new StringKey(null,name_ini.Substring(type.Length));
         }
 
-
-
         priority = 0;
         if (content.ContainsKey("priority"))
         {
@@ -1075,7 +1419,14 @@ public class GenericData
         // absolute paths are not supported
         if (content.ContainsKey("image"))
         {
-            image = path + "/" + content["image"];
+            if (content["image"].IndexOf("{import}") == 0)
+            {
+                image = ContentData.ImportPath() + content["image"].Substring(8);
+            }
+            else
+            {
+                image = path + "/" + content["image"];
+            }
         }
         else // No image is a valid condition
         {
@@ -1106,7 +1457,7 @@ public class PerilData : QuestData.Event
     public StringKey perilText;
     override public StringKey text { get { return perilText; } }
 
-    public PerilData(string name, Dictionary<string, string> data) : base(name, data, true)
+    public PerilData(string name, Dictionary<string, string> data) : base(name, data, "")
     {
         typeDynamic = type;
         if (data.ContainsKey("priority"))

@@ -10,9 +10,7 @@ namespace Assets.Scripts.Content
     // This exists because .NET/Mono doesn't have one!!
     public static class LocalizationRead
     {
-        public static DictionaryI18n ffgDict = null;
-        public static DictionaryI18n valkyrieDict = null;
-        public static DictionaryI18n scenarioDict = null;
+        public static Dictionary<string, DictionaryI18n> dicts = new Dictionary<string, DictionaryI18n>();
 
         /// <summary>
         /// Change all dictionary languages
@@ -20,67 +18,10 @@ namespace Assets.Scripts.Content
         /// <param name="newLang">string for new language</param>
         public static void changeCurrentLangTo(string newLang)
         {
-            if (ffgDict != null)
+            foreach (DictionaryI18n d in dicts.Values)
             {
-                ffgDict.setCurrentLanguage(newLang);
+                d.currentLanguage = newLang;
             }
-            if (valkyrieDict != null)
-            {
-                valkyrieDict.setCurrentLanguage(newLang);
-            }
-            if (scenarioDict != null)
-            {
-                scenarioDict.setCurrentLanguage(newLang);
-            }
-        }
-
-        // Function takes Unity TextAsset and returns localization dictionary
-        public static DictionaryI18n ReadFromTextAsset(TextAsset asset, string newCurrentLang)
-        {
-            string[] lines;
-            try
-            {
-                // split text into array of lines
-                lines = asset.text.Split(new string[] { "\r", "\n" }, System.StringSplitOptions.RemoveEmptyEntries);
-            }
-            catch (System.Exception e)
-            {
-                ValkyrieDebug.Log("Error loading localization from asset " + asset.name + ":" + e.Message);
-                return null;
-            }
-
-            // The assets has the english as default language
-            return new DictionaryI18n(lines,DictionaryI18n.DEFAULT_LANG,newCurrentLang);
-        }
-
-        // Function takes path to localization file and returns data object
-        // Returns null on error
-        public static DictionaryI18n ReadFromFilePath(string path, string newDefaultLang, string newCurrentLang)
-        {
-            string[] lines;
-
-            // Read the whole file
-            try
-            {
-                lines = System.IO.File.ReadAllLines(path);
-            }
-            catch (System.Exception e)
-            {
-                ValkyrieDebug.Log("Error loading localization file " + path + ":" + e.Message);
-                return null;
-            }
-            // Parse text data
-            return new DictionaryI18n(lines, newDefaultLang,newCurrentLang);
-        }
-
-
-        // Function ini file contents as a string and returns data object
-        // Returns null on error
-        public static DictionaryI18n ReadFromString(string content, string newDefaultLang, string newCurrentLang)
-        {
-            // split text into array of lines
-            string[] lines = content.Split(new string[] { "\r", "\n" }, System.StringSplitOptions.RemoveEmptyEntries);
-            return new DictionaryI18n(lines, newDefaultLang, newCurrentLang);
         }
 
         private const int RECURSIVE_LIMIT = 10;
@@ -96,14 +37,13 @@ namespace Assets.Scripts.Content
             string output = input.fullKey;
             // While there are more lookups
 
-            string regexKey = "{(ffg|val|qst):";
             // Count the number of replaces. One lookup should not replace more than RECURSIVE_LIMIT elements.
             int recursiveCount = 0;
 
             //while (output.IndexOf("{ffg:") != -1)
-            while (Regex.Match(output,regexKey).Success && recursiveCount < RECURSIVE_LIMIT)
+            while (Regex.Match(output, LookupRegexKey()).Success && recursiveCount < RECURSIVE_LIMIT)
             {
-                int pos = Regex.Match(output, regexKey).Index;
+                int pos = Regex.Match(output, LookupRegexKey()).Index;
                 // Can be nested
                 int bracketLevel = 1;
                 // Start of lookup
@@ -139,8 +79,18 @@ namespace Assets.Scripts.Content
                 result = result.Replace("[u]", "<b>").Replace("[/u]", "</b>");
                 result = result.Replace("[i]", "<i>").Replace("[/i]", "</i>");
                 result = result.Replace("[b]", "<b>").Replace("[/b]", "</b>");
-                // Replace the lookup
 
+                // Some FFG text doesn't close b/i like it should
+                while (Regex.Matches(result, "<b>").Count > Regex.Matches(result, "</b>").Count)
+                {
+                    result += "</b>";
+                }
+                while (Regex.Matches(result, "<i>").Count > Regex.Matches(result, "</i>").Count)
+                {
+                    result += "</i>";
+                }
+
+                // Replace the lookup
                 output = output.Replace("{" + dict + ":" + lookup + "}", result);
                 // Increase the recursive count
                 recursiveCount++;
@@ -159,10 +109,9 @@ namespace Assets.Scripts.Content
             string output = input.fullKey;
             // While there are more lookups
 
-            string regexKey = "{(ffg|val|qst):";
-            if (!Regex.Match(output, regexKey).Success) return false;
+            if (!Regex.Match(output, LookupRegexKey()).Success) return false;
 
-            int pos = Regex.Match(output, regexKey).Index;
+            int pos = Regex.Match(output, LookupRegexKey()).Index;
             // Can be nested
             int bracketLevel = 1;
             // Start of lookup
@@ -278,8 +227,7 @@ namespace Assets.Scripts.Content
 
             DictionaryI18n currentDict = selectDictionary(dict);
             if (currentDict == null) return false;
-            EntryI18n valueOut;
-            return currentDict.tryGetValue(elements[0], out valueOut);
+            return currentDict.KeyExists(elements[0]);
         }
 
         /// <summary>
@@ -289,31 +237,7 @@ namespace Assets.Scripts.Content
         /// <param name="text">text to insert in current language</param>
         public static void updateScenarioText(string key, string text)
         {
-            EntryI18n entry;
-            // Search for localization string 
-            if (!scenarioDict.tryGetValue(key, out entry))
-            {
-                // if not exists, we create a new one
-                entry = new EntryI18n(key,scenarioDict);
-            }
-
-            entry.currentLanguageString = text;
-        }
-
-        /// <summary>
-        /// Replaces all dictionary entries with old key and replaces with the new one
-        /// </summary>
-        /// <param name="oldKey"></param>
-        /// <param name="newKey"></param>
-        public static void replaceScenarioText(string oldKey,string newKey)
-        {
-            EntryI18n entry;
-            // Search for localization string 
-            if (scenarioDict.tryGetValue(oldKey, out entry))
-            {
-                entry.key = newKey;
-                scenarioDict.Add(entry);
-            }
+            dicts["qst"].AddEntry(key, text);
         }
 
         /// <summary>
@@ -326,23 +250,12 @@ namespace Assets.Scripts.Content
         {
             DictionaryI18n currentDict = selectDictionary(dict);
 
-            if (currentDict != null)
-            {
-                EntryI18n valueOut;
-
-                if (currentDict.tryGetValue(key, out valueOut))
-                {
-                    return valueOut.getCurrentOrDefaultLanguageString();
-                }
-                else
-                {
-                    return key;
-                }
-            } else
+            if (currentDict == null)
             {
                 ValkyrieDebug.Log("Error: current dictionary not loaded");
+                return key;
             }
-            return key;
+            return currentDict.GetValue(key);
         }
 
         /// <summary>
@@ -350,19 +263,43 @@ namespace Assets.Scripts.Content
         /// </summary>
         /// <param name="dict">dictionary name</param>
         /// <returns>dictionary selected</returns>
-        private static DictionaryI18n selectDictionary(string dict)
+        public static DictionaryI18n selectDictionary(string dict)
         {
-            switch (dict)
+            if (!dicts.ContainsKey(dict)) return null;
+
+            return dicts[dict];
+        }
+
+        /// <summary>
+        /// Add a new dictionary, replaces if exists
+        /// </summary>
+        /// <param name="name">dictionary name</param>
+        /// <param name="dict">DictionaryI18n data</param>
+        /// <returns>void</returns>
+        public static void AddDictionary(string name, DictionaryI18n dict)
+        {
+            if (!dicts.ContainsKey(name))
             {
-                case "ffg":
-                    return ffgDict;
-                case "val":
-                    return valkyrieDict;
-                case "qst":
-                    return scenarioDict;
-                default:
-                    return null;
+                dicts.Add(name, dict);
             }
+            else
+            {
+                dicts[name] = dict;
+            }
+        }
+
+        /// <summary>
+        /// Get a regex pattern to check if is it a valid lookup key
+        /// </summary>
+        /// <returns>regex string</returns>
+        public static string LookupRegexKey()
+        {
+            string regexKey = "{(";
+            foreach (string key in dicts.Keys)
+            {
+                regexKey += key + "|";
+            }
+            return regexKey.Substring(0, regexKey.Length - 1) + "):";
         }
     }
 }

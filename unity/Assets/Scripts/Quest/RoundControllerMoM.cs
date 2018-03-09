@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using Assets.Scripts.Content;
 
 // This round controller extends the standard controller for MoM specific round order
 public class RoundControllerMoM : RoundController
@@ -17,6 +18,7 @@ public class RoundControllerMoM : RoundController
         }
         game.quest.phase = Quest.MoMPhase.mythos;
         game.stageUI.Update();
+        game.monsterCanvas.UpdateList();
 
         game.quest.eManager.EventTriggerType("Mythos", false);
         // This will cause the next phase if nothing was added
@@ -65,7 +67,18 @@ public class RoundControllerMoM : RoundController
             // Find a random unactivated monster
             Quest.Monster toActivate = game.quest.monsters[notActivated[Random.Range(0, notActivated.Count)]];
 
-            ActivateMonster(toActivate);
+            // Find out of this monster is quest specific
+            QuestMonster qm = toActivate.monsterData as QuestMonster;
+            if (qm != null && qm.activations != null && qm.activations.Length == 1 && qm.activations[0].IndexOf("Event") == 0)
+            {
+                toActivate.masterStarted = true;
+                game.quest.eManager.monsterImage = toActivate;
+                game.quest.eManager.QueueEvent(qm.activations[0]);
+            }
+            else
+            {
+                ActivateMonster(toActivate);
+            }
             // Return false as activations remain
             return false;
         }
@@ -73,22 +86,22 @@ public class RoundControllerMoM : RoundController
     }
 
     // Check if there are events that are required at the end of the round
-    public override void CheckNewRound()
+    public override bool CheckNewRound()
     {
 
         Game game = Game.Get();
 
         // Return if there is an event open
         if (game.quest.eManager.currentEvent != null)
-            return;
+            return false;
 
         // Return if there is an event queued
         if (game.quest.eManager.eventStack.Count > 0)
-            return;
+            return false;
 
         if (game.quest.phase == Quest.MoMPhase.investigator)
         {
-            return;
+            return false;
         }
 
         if (game.quest.phase == Quest.MoMPhase.mythos)
@@ -98,13 +111,14 @@ public class RoundControllerMoM : RoundController
                 game.quest.phase = Quest.MoMPhase.monsters;
                 game.stageUI.Update();
                 ActivateMonster();
-                return;
+                return game.quest.eManager.currentEvent != null;
             }
             else
             {
                 game.quest.phase = Quest.MoMPhase.horror;
                 game.stageUI.Update();
                 EndRound();
+                return game.quest.eManager.currentEvent != null;
             }
         }
 
@@ -112,7 +126,7 @@ public class RoundControllerMoM : RoundController
         {
             game.quest.phase = Quest.MoMPhase.horror;
             game.stageUI.Update();
-            return;
+            return false;
         }
 
         // Finishing the round
@@ -135,15 +149,17 @@ public class RoundControllerMoM : RoundController
         int round = Mathf.RoundToInt(game.quest.vars.GetValue("#round")) + 1;
         game.quest.vars.SetValue("#round", round);
 
+        game.quest.log.Add(new Quest.LogEntry(new StringKey("val", "PHASE_INVESTIGATOR").Translate()));
+
         game.quest.phase = Quest.MoMPhase.investigator;
         game.stageUI.Update();
-
-        // Update monster display
-        game.monsterCanvas.UpdateStatus();
+        game.monsterCanvas.UpdateList();
 
         game.audioControl.PlayTrait("newround");
 
         // Start of round events
         game.quest.eManager.EventTriggerType("StartRound");
+        SaveManager.Save(0);
+        return true;
     }
 }

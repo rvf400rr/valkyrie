@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using Assets.Scripts.Content;
+using Assets.Scripts.UI;
 
 // Window with starting Investigator items
 public class InvestigatorItems
@@ -26,75 +27,45 @@ public class InvestigatorItems
 
         foreach (KeyValuePair<string, QuestData.QuestComponent> kv in game.quest.qd.components)
         {
-            QuestData.StartingItem item = kv.Value as QuestData.StartingItem;
-            if (item != null)
+            QuestData.QItem item = kv.Value as QuestData.QItem;
+            if (item != null && item.starting && game.quest.itemSelect.ContainsKey(kv.Key))
             {
-                // Specific items
-                if (item.traits.Length == 0 && (item.itemName.Length == 1))
+                game.quest.items.Add(game.quest.itemSelect[kv.Key]);
+                if (item.inspect.Length > 0)
                 {
-                    if (game.cd.items.ContainsKey(item.itemName[0]))
+                    if (game.quest.itemInspect.ContainsKey(game.quest.itemSelect[kv.Key]))
                     {
-                        game.quest.items.Add(item.itemName[0]);
+                        game.quest.itemInspect.Remove(game.quest.itemSelect[kv.Key]);
                     }
-                }
-                // Random item
-                else
-                {
-                    List<string> candidates = new List<string>();
-                    foreach (KeyValuePair<string, ItemData> id in game.cd.items)
-                    {
-                        bool valid = !game.quest.items.Contains(id.Value.sectionName);
-                        if (id.Value.unique)
-                        {
-                            valid = false;
-                        }
-                        foreach (string trait in item.traits)
-                        {
-                            if (!id.Value.ContainsTrait(trait) && trait.Length > 0)
-                            {
-                                valid = false;
-                            }
-                            foreach (string s in item.itemName)
-                            {
-                                if (s.Equals(id.Value.sectionName))
-                                {
-                                    valid = false;
-                                }
-                            }
-                        }
-                        if (valid)
-                        {
-                            candidates.Add(id.Value.sectionName);
-                        }
-                    }
-                    if (candidates.Count > 0)
-                    {
-                        game.quest.items.Add(candidates[Random.Range(0, candidates.Count)]);
-                    }
+                    game.quest.itemInspect.Add(game.quest.itemSelect[kv.Key], item.inspect);
                 }
             }
         }
 
         // If a dialog window is open we force it closed (this shouldn't happen)
-        foreach (GameObject go in GameObject.FindGameObjectsWithTag("dialog"))
+        foreach (GameObject go in GameObject.FindGameObjectsWithTag(Game.DIALOG))
             Object.Destroy(go);
 
-        DialogBox db = new DialogBox(new Vector2(10, 0.5f), new Vector2(UIScaler.GetWidthUnits() - 20, 2), STARTING_ITEMS);
-        db.SetFont(Game.Get().gameType.GetHeaderFont());
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
+        UIElement ui = new UIElement();
+        ui.SetLocation(10, 0.5f, UIScaler.GetWidthUnits() - 20, 2);
+        ui.SetText(STARTING_ITEMS);
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        ui.SetFont(Game.Get().gameType.GetHeaderFont());
 
         int y = 0;
         int x = 0;
         foreach (string item in game.quest.items)
         {
             Texture2D tex = ContentData.FileToTexture(game.cd.items[item].image);
-            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), Vector2.zero, 1);
+            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), Vector2.zero, 1, 0, SpriteMeshType.FullRect);
 
-            db = new DialogBox(new Vector2(UIScaler.GetHCenter(8f * x) - 19, 5f + (9f * y)), new Vector2(6, 6), StringKey.NULL);
-            db.background.GetComponent<UnityEngine.UI.Image>().sprite = sprite;
-            db.background.GetComponent<UnityEngine.UI.Image>().color = Color.white;
+            ui = new UIElement();
+            ui.SetLocation(UIScaler.GetHCenter(8f * x) - 19, 5f + (9f * y), 6, 6);
+            ui.SetImage(sprite);
 
-            db = new DialogBox(new Vector2(UIScaler.GetHCenter(8f * x) - 20, 11f + (9f * y)), new Vector2(8, 1), game.cd.items[item].name);
+            ui = new UIElement();
+            ui.SetLocation(UIScaler.GetHCenter(8f * x) - 20, 11f + (9f * y), 8, 1);
+            ui.SetText(game.cd.items[item].name);
 
             x++;
             if (x > 4)
@@ -103,8 +74,12 @@ public class InvestigatorItems
                 y++;
             }
         }
-        TextButton tb = new TextButton(new Vector2(UIScaler.GetHCenter(-6f), 27f), new Vector2(12, 2), 
-            CommonStringKeys.FINISHED, delegate { game.QuestStartEvent(); });
-        tb.SetFont(game.gameType.GetHeaderFont());
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-6f), 27f, 12, 2);
+        ui.SetText(CommonStringKeys.FINISHED);
+        ui.SetFont(game.gameType.GetHeaderFont());
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        ui.SetButton(game.QuestStartEvent);
+        new UIElementBorder(ui);
     }
 }

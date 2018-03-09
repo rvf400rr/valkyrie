@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine.EventSystems;
 using UnityEngine.Events;
 using Assets.Scripts.Content;
+using Assets.Scripts.UI;
 
 public class PuzzleImageWindow
 {
@@ -20,7 +21,6 @@ public class PuzzleImageWindow
     {
         eventData = e;
         Game game = Game.Get();
-        game.cc.panDisable = true;
 
         questPuzzle = e.qEvent as QuestData.Puzzle;
 
@@ -61,7 +61,7 @@ public class PuzzleImageWindow
             imageSprite[i] = new Sprite[questPuzzle.puzzleAltLevel];
             for (int j = 0; j < questPuzzle.puzzleAltLevel; j++)
             {
-                imageSprite[i][j] = Sprite.Create(newTex, new Rect(i * newTex.width / questPuzzle.puzzleLevel, (questPuzzle.puzzleAltLevel - (j + 1)) * newTex.height / questPuzzle.puzzleAltLevel, newTex.width / questPuzzle.puzzleLevel, newTex.height / questPuzzle.puzzleAltLevel), Vector2.zero, 1);
+                imageSprite[i][j] = Sprite.Create(newTex, new Rect(i * newTex.width / questPuzzle.puzzleLevel, (questPuzzle.puzzleAltLevel - (j + 1)) * newTex.height / questPuzzle.puzzleAltLevel, newTex.width / questPuzzle.puzzleLevel, newTex.height / questPuzzle.puzzleAltLevel), Vector2.zero, 1, 0, SpriteMeshType.FullRect);
             }
         }
 
@@ -71,20 +71,21 @@ public class PuzzleImageWindow
     public void CreateWindow()
     {
         Destroyer.Dialog();
-        Game.Get().cc.panDisable = true;
-        DialogBox db = new DialogBox(new Vector2(UIScaler.GetHCenter(-14f), 0.5f), new Vector2(28f, 22f), StringKey.NULL);
-        db.AddBorder();
+        UIElement ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-14f), 0.5f, 28, 22);
+        new UIElementBorder(ui);
 
         // Puzzle goes here
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(10), 8, 3, 2);
+        ui.SetText(new StringKey("val","X_COLON",CommonStringKeys.SKILL));
+        ui.SetFontSize(UIScaler.GetMediumFont());
 
-        db = new DialogBox(new Vector2(UIScaler.GetHCenter(10f), 8f), new Vector2(3f, 2f),
-            new StringKey("val", "X_COLON", CommonStringKeys.SKILL));
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-
-        db = new DialogBox(new Vector2(UIScaler.GetHCenter(10f), 10f), new Vector2(3f, 2f),
-            new StringKey(null, EventManager.SymbolReplace(questPuzzle.skill),false));
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-        db.AddBorder();
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(10), 10, 3, 2);
+        ui.SetText(EventManager.OutputSymbolReplace(questPuzzle.skill));
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        new UIElementBorder(ui);
 
         bool solved = puzzle.Solved();
         foreach (KeyValuePair<PuzzleImage.TilePosition, PuzzleImage.TilePosition> kv in puzzle.state)
@@ -92,36 +93,57 @@ public class PuzzleImageWindow
             Draw(kv.Key, kv.Value, solved);
         }
 
-        db = new DialogBox(new Vector2(UIScaler.GetHCenter(-13f), 20f), new Vector2(6f, 2f),
-            new StringKey("val", "X_COLON", CommonStringKeys.MOVES));
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-13f), 20f, 6, 2);
+        ui.SetText(new StringKey("val","X_COLON",CommonStringKeys.MOVES));
+        ui.SetFontSize(UIScaler.GetMediumFont());
 
-        db = new DialogBox(new Vector2(UIScaler.GetHCenter(-6f), 20f), new Vector2(3f, 2f), puzzle.moves - previousMoves);
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-        db.AddBorder();
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-6), 20, 3, 2);
+        ui.SetText((puzzle.moves - previousMoves).ToString());
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        new UIElementBorder(ui);
 
-        db = new DialogBox(new Vector2(UIScaler.GetHCenter(-3f), 20f), new Vector2(10f, 2f),
-            new StringKey("val", "X_COLON", CommonStringKeys.TOTAL_MOVES));
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-3f), 20f, 10, 2);
+        ui.SetText(new StringKey("val","X_COLON",CommonStringKeys.TOTAL_MOVES));
+        ui.SetFontSize(UIScaler.GetMediumFont());
 
-        db = new DialogBox(new Vector2(UIScaler.GetHCenter(7f), 20f), new Vector2(3f, 2f), puzzle.moves);
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-        db.AddBorder();
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(7), 20, 3, 2);
+        ui.SetText(puzzle.moves.ToString());
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        new UIElementBorder(ui);
 
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-13), 23.5f, 8, 2);
         if (solved)
         {
-            new TextButton(new Vector2(UIScaler.GetHCenter(-13f), 23.5f), new Vector2(8f, 2), CommonStringKeys.CLOSE, delegate {; }, Color.grey);
-            new TextButton(
-                new Vector2(UIScaler.GetHCenter(5f), 23.5f), new Vector2(8f, 2), 
-                eventData.GetButtons()[0].GetLabel(), delegate { Finished(); });
+            ui.SetText(CommonStringKeys.CLOSE, Color.grey);
+            new UIElementBorder(ui, Color.grey);
         }
         else
         {
-            new TextButton(new Vector2(UIScaler.GetHCenter(-13f), 23.5f), new Vector2(8f, 2), CommonStringKeys.CLOSE, delegate { Close(); });
-            new TextButton(
-                new Vector2(UIScaler.GetHCenter(5f), 23.5f), new Vector2(8f, 2), 
-                eventData.GetButtons()[0].GetLabel(), delegate {; }, Color.grey);
+            ui.SetText(CommonStringKeys.CLOSE);
+            new UIElementBorder(ui);
+            ui.SetButton(Close);
         }
+        ui.SetFontSize(UIScaler.GetMediumFont());
+
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(5), 23.5f, 8, 2);
+        if (!solved)
+        {
+            ui.SetText(eventData.GetButtons()[0].GetLabel(), Color.grey);
+            new UIElementBorder(ui, Color.grey);
+        }
+        else
+        {
+            ui.SetText(eventData.GetButtons()[0].GetLabel());
+            new UIElementBorder(ui);
+            ui.SetButton(Finished);
+        }
+        ui.SetFontSize(UIScaler.GetMediumFont());
     }
 
     public void Draw(PuzzleImage.TilePosition screenPos, PuzzleImage.TilePosition imgPos, bool solved)
@@ -129,9 +151,9 @@ public class PuzzleImageWindow
         Game game = Game.Get();
         // Create object
         GameObject gameObject = new GameObject("PuzzleTile");
-        gameObject.tag = "dialog";
+        gameObject.tag = Game.DIALOG;
 
-        gameObject.transform.parent = game.uICanvas.transform;
+        gameObject.transform.SetParent(game.uICanvas.transform);
 
         RectTransform trans = gameObject.AddComponent<RectTransform>();
         trans.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Top, UIScaler.GetPixelsPerUnit() + (UIScaler.GetPixelsPerUnit() * screenPos.y * height), height * UIScaler.GetPixelsPerUnit());

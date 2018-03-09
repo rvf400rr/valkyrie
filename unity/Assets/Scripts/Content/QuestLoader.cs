@@ -10,19 +10,20 @@ using ValkyrieTools;
 public class QuestLoader {
 
     // Return a dictionary of all available quests
-    public static Dictionary<string, QuestData.Quest> GetQuests(bool checkContent = false)
+    public static Dictionary<string, QuestData.Quest> GetQuests(bool getHidden = false)
     {
         Dictionary<string, QuestData.Quest> quests = new Dictionary<string, QuestData.Quest>();
 
         Game game = Game.Get();
         // Look in the user application data directory
-        string dataLocation = System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData) + "/Valkyrie";
+        string dataLocation = Game.AppData();
         mkDir(dataLocation);
+        CleanTemp();
         // Get a list of quest directories (extract found packages)
         List<string> questDirectories = GetQuests(dataLocation);
 
         // Add packaged quests that have been extracted
-        questDirectories.AddRange(GetQuests(Path.GetTempPath() + "Valkyrie"));
+        questDirectories.AddRange(GetQuests(ContentData.TempValyriePath));
 
         // Go through all directories
         foreach (string p in questDirectories)
@@ -32,8 +33,8 @@ public class QuestLoader {
             // Check quest is valid and of the right type
             if (q.valid && q.type.Equals(game.gameType.TypeName()))
             {
-                // Are all expansions selected?
-                if (q.GetMissingPacks(game.cd.GetLoadedPackIDs()).Count == 0 || !checkContent)
+                // Is the quest hidden?
+                if (!q.hidden || getHidden)
                 {
                     // Add quest to quest list
                     quests.Add(p, q);
@@ -54,12 +55,12 @@ public class QuestLoader {
         CleanTemp();
 
         // Read user application data for quests
-        string dataLocation = System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData) + "/Valkyrie";
+        string dataLocation = Game.AppData();
         mkDir(dataLocation);
         List<string> questDirectories = GetQuests(dataLocation);
 
         // Read extracted packages
-        questDirectories.AddRange(GetQuests(Path.GetTempPath() + "Valkyrie"));
+        questDirectories.AddRange(GetQuests(ContentData.TempValyriePath));
 
         // go through all found quests
         foreach (string p in questDirectories)
@@ -82,7 +83,7 @@ public class QuestLoader {
         Dictionary<string, QuestData.Quest> quests = new Dictionary<string, QuestData.Quest>();
 
         // Read user application data for quests
-        string dataLocation = System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData) + "/Valkyrie";
+        string dataLocation = Game.AppData();
         mkDir(dataLocation);
         List<string> questDirectories = GetQuests(dataLocation);
 
@@ -121,15 +122,22 @@ public class QuestLoader {
                     quests.Add(p);
             }
         }
+        ExtractPackages(path);
 
+        return quests;
+    }
+
+    public static void ExtractPackages(string path)
+    {
         // Find all packages at path
         string[] archives = Directory.GetFiles(path, "*.valkyrie", SearchOption.AllDirectories);
         // Extract all packages
         foreach (string f in archives)
         {
             // Extract into temp
-            mkDir(Path.GetTempPath() + "/Valkyrie");
-            string extractedPath = Path.GetTempPath() + "Valkyrie/" + Path.GetFileName(f);
+            string tempValkyriePath = ContentData.TempValyriePath;
+            mkDir(tempValkyriePath);
+            string extractedPath = Path.Combine(tempValkyriePath, Path.GetFileName(f));
             if (Directory.Exists(extractedPath))
             {
                 try
@@ -154,8 +162,6 @@ public class QuestLoader {
                 ValkyrieDebug.Log("Warning: Unable to read file: " + extractedPath);
             }
         }
-
-        return quests;
     }
 
     // Attempt to create a directory
@@ -198,16 +204,17 @@ public class QuestLoader {
     public static void CleanTemp()
     {
         // Nothing to do if no temporary files
-        if (!Directory.Exists(Path.GetTempPath() + "/Valkyrie"))
+        string tempValkyriePath = ContentData.TempValyriePath;
+        if (!Directory.Exists(tempValkyriePath))
         {
             return;
         }
 
         try
         {
-            Directory.Delete(Path.GetTempPath() + "/Valkyrie", true);
+            Directory.Delete(tempValkyriePath, true);
         }
-        catch (System.Exception)
+        catch
         {
             ValkyrieDebug.Log("Warning: Unable to remove temporary files.");
         }

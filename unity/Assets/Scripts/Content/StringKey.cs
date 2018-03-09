@@ -50,11 +50,9 @@ namespace Assets.Scripts.Content
 
         private bool preventLookup = false;
 
-        private const string regexKey = "^{(ffg|val|qst):";
-
         public StringKey(string unknownKey)
         {
-            if (Regex.Match(unknownKey, regexKey).Success)
+            if (Regex.Match(unknownKey, LocalizationRead.LookupRegexKey()).Success)
             {
                 string[] parts = unknownKey.Substring(1,unknownKey.Length -2).Split(":".ToCharArray(), 3, System.StringSplitOptions.RemoveEmptyEntries);
 
@@ -151,8 +149,14 @@ namespace Assets.Scripts.Content
                 return LocalizationRead.DictLookup(this);
             } else
             {
-                //non heys can have newline characters
-                return fullKey.Replace("\\n", System.Environment.NewLine);
+                if (fullKey != null)
+                {
+                    //non heys can have newline characters
+                    return fullKey.Replace("\\n", "\n");
+                } else
+                {
+                    return null;
+                }
             }
         }
 
@@ -171,7 +175,7 @@ namespace Assets.Scripts.Content
         /// <returns>key</returns>
         public override string ToString()
         {
-            return fullKey.Replace(System.Environment.NewLine, "\\n");
+            return fullKey.Replace("\n", "\\n");
         }
     }
 }

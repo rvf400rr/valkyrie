@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using ValkyrieTools;
+using Assets.Scripts.Content;
 
 // This class controls the progression of activations and events
 public class RoundController {
@@ -277,20 +278,20 @@ public class RoundController {
     }
 
     // Check if ready for new round
-    public virtual void CheckNewRound()
+    public virtual bool CheckNewRound()
     {
 
         Game game = Game.Get();
 
         // Is there an active event?
         if (game.quest.eManager.currentEvent != null)
-            return;
+            return false;
 
         // Are there queued events?
         if (game.quest.eManager.eventStack.Count > 0)
-            return;
+            return false;
 
-        if (!activationsFinished) return;
+        if (!activationsFinished) return false;
 
         // Clean up for next round
         activationsFinished = false;
@@ -312,6 +313,8 @@ public class RoundController {
         int round = Mathf.RoundToInt(game.quest.vars.GetValue("#round")) + 1;
         game.quest.vars.SetValue("#round", round);
 
+        game.quest.log.Add(new Quest.LogEntry(new StringKey("val", "ROUND", round).Translate()));
+
         // Update monster and hero display
         game.monsterCanvas.UpdateStatus();
         game.heroCanvas.UpdateStatus();
@@ -320,5 +323,7 @@ public class RoundController {
 
         // Start of round events
         game.quest.eManager.EventTriggerType("StartRound");
+        SaveManager.Save(0);
+        return true;
     }
 }

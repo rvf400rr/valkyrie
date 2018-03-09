@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 using Assets.Scripts.Content;
+using Assets.Scripts.UI;
 
 // Window with Monster activation
 public class ActivateDialogMoM : ActivateDialog
@@ -15,34 +16,45 @@ public class ActivateDialogMoM : ActivateDialog
     override public void CreateWindow(bool singleStep = false)
     {
         // If a dialog window is open we force it closed (this shouldn't happen)
-        foreach (GameObject go in GameObject.FindGameObjectsWithTag("dialog"))
+        foreach (GameObject go in GameObject.FindGameObjectsWithTag(Game.DIALOG))
             Object.Destroy(go);
 
         // ability box - name header
-        DialogBox db = new DialogBox(new Vector2(UIScaler.GetHCenter(-9f), 0.5f), new Vector2(18, 2), monster.monsterData.name);
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-        db.AddBorder();
+        UIElement ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-9f), 0.5f, 18, 2);
+        ui.SetText(monster.monsterData.name);
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        new UIElementBorder(ui);
 
         float offset = 2.5f;
         if (monster.currentActivation.effect.Length > 0)
         {
             // ability text
             string textKey = monster.currentActivation.effect.Replace("\\n", "\n");
-            db = new DialogBox(new Vector2(10, offset), new Vector2(UIScaler.GetWidthUnits() - 20, 4), 
-                new StringKey(null, textKey,false));
-            db.AddBorder();
+            // Add this to the log
+            Game.Get().quest.log.Add(new Quest.LogEntry(textKey.Replace("\n", "\\n")));
+            ui = new UIElement();
+            ui.SetLocation(10, offset, UIScaler.GetWidthUnits() - 20, 4);
+            ui.SetText(textKey);
+            new UIElementBorder(ui);
             offset += 4.5f;
         }
 
-        new TextButton(new Vector2(UIScaler.GetHCenter(-9f), offset), new Vector2(18, 2), MONSTER_ATTACKS, delegate { CreateAttackWindow(); });
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-9f), offset, 18, 2);
+        ui.SetText(MONSTER_ATTACKS);
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        ui.SetButton(CreateAttackWindow);
+        new UIElementBorder(ui);
 
         offset += 2.5f;
 
-        new TextButton(
-            new Vector2(UIScaler.GetHCenter(-9f), offset), 
-            new Vector2(18, 2), 
-            monster.currentActivation.ad.moveButton, 
-            delegate { CreateMoveWindow(); });
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-9f), offset, 18, 2);
+        ui.SetText(monster.currentActivation.ad.moveButton);
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        ui.SetButton(CreateMoveWindow);
+        new UIElementBorder(ui);
 
         MonsterDialogMoM.DrawMonster(monster);
     }
@@ -52,20 +64,29 @@ public class ActivateDialogMoM : ActivateDialog
         Destroyer.Dialog();
 
         // ability box - name header
-        DialogBox db = new DialogBox(new Vector2(15, 0.5f), new Vector2(UIScaler.GetWidthUnits() - 30, 2), monster.monsterData.name);
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-        db.AddBorder();
+        UIElement ui = new UIElement();
+        ui.SetLocation(15, 0.5f, UIScaler.GetWidthUnits() - 30, 2);
+        ui.SetText(monster.monsterData.name);
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        new UIElementBorder(ui);
 
         float offset = 2.5f;
-        db = new DialogBox(
-            new Vector2(10, offset), 
-            new Vector2(UIScaler.GetWidthUnits() - 20, 4), 
-            new StringKey(null, EventManager.SymbolReplace(monster.currentActivation.ad.masterActions.Translate()), false));
-        db.AddBorder();
+        ui = new UIElement();
+        ui.SetLocation(10, offset, UIScaler.GetWidthUnits() - 20, 4);
+        ui.SetText(monster.currentActivation.masterActions.Replace("\\n", "\n"));
+        new UIElementBorder(ui);
+
+        // Add this to the log
+        Game.Get().quest.log.Add(new Quest.LogEntry(monster.currentActivation.masterActions.Replace("\n", "\\n")));
 
         offset += 4.5f;
 
-        new TextButton(new Vector2(UIScaler.GetHCenter(-6f), offset), new Vector2(12, 2), CommonStringKeys.FINISHED, delegate { activated(); });
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-6f), offset, 12, 2);
+        ui.SetText(CommonStringKeys.FINISHED);
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        ui.SetButton(activated);
+        new UIElementBorder(ui);
 
         MonsterDialogMoM.DrawMonster(monster);
     }
@@ -79,18 +100,29 @@ public class ActivateDialogMoM : ActivateDialog
         }
 
         Destroyer.Dialog();
-        DialogBox db = new DialogBox(new Vector2(15, 0.5f), new Vector2(UIScaler.GetWidthUnits() - 30, 2), monster.monsterData.name);
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-        db.AddBorder();
+        UIElement ui = new UIElement();
+        ui.SetLocation(15, 0.5f, UIScaler.GetWidthUnits() - 30, 2);
+        ui.SetText(monster.monsterData.name);
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        new UIElementBorder(ui);
 
         float offset = 2.5f;
-        db = new DialogBox(new Vector2(10, offset), new Vector2(UIScaler.GetWidthUnits() - 20, 4), 
-            new StringKey(null, monster.currentActivation.move.Replace("\\n", "\n"),false));
-        db.AddBorder();
+        ui = new UIElement();
+        ui.SetLocation(10, offset, UIScaler.GetWidthUnits() - 20, 4);
+        ui.SetText(monster.currentActivation.move.Replace("\\n", "\n"));
+        new UIElementBorder(ui);
+
+        // Add this to the log
+        Game.Get().quest.log.Add(new Quest.LogEntry(monster.currentActivation.move.Replace("\n", "\\n")));
 
         offset += 4.5f;
 
-        new TextButton(new Vector2(UIScaler.GetHCenter(-6f), offset), new Vector2(12, 2), CommonStringKeys.FINISHED, delegate { activated(); });
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-6f), offset, 12, 2);
+        ui.SetText(CommonStringKeys.FINISHED);
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        ui.SetButton(activated);
+        new UIElementBorder(ui);
 
         MonsterDialogMoM.DrawMonster(monster);
     }

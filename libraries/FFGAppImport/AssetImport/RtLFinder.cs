@@ -1,4 +1,6 @@
-﻿
+﻿using ValkyrieTools;
+using System;
+
 namespace FFGAppImport
 {
     public class RtLFinder : AppFinder
@@ -10,7 +12,7 @@ namespace FFGAppImport
         // If the installed app isn't this or higher don't import
         override public string RequiredFFGVersion()
         {
-            return "1.3.0";
+            return "1.4.0";
         }
         // Steam app ID
         override public string AppId()
@@ -43,6 +45,23 @@ namespace FFGAppImport
         override public int ObfuscateKey()
         {
             return 0;
+        }
+
+        public override string ObbPath()
+        {
+            if (!System.IO.Directory.Exists(Android.GetStorage() + "/Android/obb/com.fantasyflightgames.rtl"))
+            {
+                return "";
+            }
+
+            foreach (string file in System.IO.Directory.GetFiles(Android.GetStorage() + "/Android/obb/com.fantasyflightgames.rtl"))
+            {
+                if (file.Contains(".com.fantasyflightgames.rtl.obb"))
+                {
+                    return file;
+                }
+            }
+            return "";
         }
     }
 }

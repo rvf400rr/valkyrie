@@ -11,9 +11,12 @@ public class Audio : MonoBehaviour
     public AudioClip eventClip;
     public List<AudioClip> music;
     public bool fadeOut = false;
+    public bool fetchingMusic = false;
     public int musicIndex = 0;
     public float effectVolume;
     public float musicVolume;
+    public List<AudioClip> previousMusic;
+    public bool loop = true;
 
     void Start()
     {
@@ -24,11 +27,12 @@ public class Audio : MonoBehaviour
         if (vSet.Length == 0) musicVolume = 1;
         audioSource.volume = musicVolume;
 
-        gameObject.transform.parent = game.cc.gameObject.transform;
+        gameObject.transform.SetParent(game.cc.gameObject.transform);
         music = new List<AudioClip>();
+        previousMusic = music;
 
         effectsObject = new GameObject("audioeffects");
-        effectsObject.transform.parent = game.cc.gameObject.transform;
+        effectsObject.transform.SetParent(game.cc.gameObject.transform);
         audioSourceEffect = effectsObject.AddComponent<AudioSource>();
         vSet = game.config.data.Get("UserConfig", "effects");
         float.TryParse(vSet, out effectVolume);
@@ -61,9 +65,9 @@ public class Audio : MonoBehaviour
         Music(toPlay);
     }
 
-    public void Music(List<string> fileNames)
+    public void Music(List<string> fileNames, bool alwaysLoop = true)
     {
-        StartCoroutine(PlayMusic(fileNames));
+        StartCoroutine(PlayMusic(fileNames, alwaysLoop));
     }
 
     public void PlayTrait(string trait)
@@ -90,16 +94,32 @@ public class Audio : MonoBehaviour
         audioSourceEffect.PlayOneShot(test, effectVolume);
     }
 
-    public IEnumerator PlayMusic(List<string> fileNames)
+    public IEnumerator PlayMusic(List<string> fileNames, bool alwaysLoop = true)
     {
-        music = new List<AudioClip>();
+        while (fetchingMusic)
+        {
+            yield return null;
+        }
+        fetchingMusic = true;
+        List<AudioClip> newMusic = new List<AudioClip>();
         foreach (string s in fileNames)
         {
-            WWW file = new WWW(@"file://" + s);
+            string fileName = s;
+            if (Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor)
+            {
+                fileName = "/" + s;
+            }
+            WWW file = new WWW(@"file://" + fileName);
             yield return file;
-            music.Add(file.audioClip);
+            newMusic.Add(file.GetAudioClip());
+        }
+        music = newMusic;
+        if (newMusic.Count > 1 || alwaysLoop)
+        {
+            previousMusic = music;
         }
         musicIndex = 0;
+        fetchingMusic = false;
         if (audioSource.isPlaying) fadeOut = true;
     }
 
@@ -117,12 +137,21 @@ public class Audio : MonoBehaviour
         }
         else
         {
-            audioSourceEffect.PlayOneShot(file.audioClip, effectVolume);
+            audioSourceEffect.PlayOneShot(file.GetAudioClip(), effectVolume);
         }
     }
 
     public void UpdateMusic()
     {
+        if (music != previousMusic && loop)
+        {
+            loop = false;
+        }
+        else
+        {
+            loop = true;
+            music = previousMusic;
+        }
         if (music.Count == 0)
         {
             audioSource.Stop();

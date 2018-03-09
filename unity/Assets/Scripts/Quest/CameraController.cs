@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
+using UnityEngine.EventSystems;
 using System.Collections;
+using System.Collections.Generic;
 
 // Class to control the game camera
 // Used to pan/zoom around the board
@@ -8,7 +10,7 @@ public class CameraController : MonoBehaviour {
     // How fast to move the screen when arrows used
     static float keyScrollRate = 0.3f;
     // How much to zoom in/out with wheel
-    static int mouseWheelScrollRate = 6;
+    static int mouseWheelScrollRate = 15;
     // Max zoom in
     static int maxZoom = -1;
     // Max zoom out
@@ -24,9 +26,14 @@ public class CameraController : MonoBehaviour {
 
     // Units to move per second
     public static float autoPanSpeed = 12;
+    // camera pan disable
+    public static bool panDisable = false;
 
     // Are we moving to a target position?
-    public bool targetSet = false;
+    private bool targetSet = false;
+
+    private bool dragging = false;
+
     // Target position
     public Vector3 camTarget;
 
@@ -34,9 +41,8 @@ public class CameraController : MonoBehaviour {
     public Vector3 mouseDownCamPosition;
     // Mouse position on mouse down
     public Vector2 mouseDownMousePosition;
-    // camera pan disable
-    public bool panDisable = false;
 
+    public Texture2D screenShot;
 
     public Game game;
 
@@ -44,16 +50,39 @@ public class CameraController : MonoBehaviour {
     void Awake()
     {
         mouseDownCamPosition = gameObject.transform.position;
+        camTarget = gameObject.transform.position;
         mouseDownMousePosition = Vector2.zero;
         game = Game.Get();
     }
 
+    bool ScrollEnabled()
+    {
+        PointerEventData pointer = new PointerEventData(EventSystem.current);
+        pointer.position = Input.mousePosition;
+
+        List<RaycastResult> raycastResults = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(pointer, raycastResults);
+
+        if (raycastResults.Count > 0)
+        {
+            foreach (RaycastResult hit in raycastResults)
+            {
+                if (!hit.gameObject.tag.Equals(Game.BOARD)) return false;
+            }
+        }
+        return true;
+    }
+
     // FixedUpdate is not tied to frame rate
     // Scrolling by keys go here to be at a fixed rate
-    void FixedUpdate () {
+    void FixedUpdate ()
+    {
         // Check if the scroll wheel has moved
-        if (Input.GetAxis("Mouse ScrollWheel") != 0)
+        if (Input.GetAxis("Mouse ScrollWheel") != 0 && ScrollEnabled())
         {
+            // disable automatic translating to avoid loops
+            targetSet = false;
+
             // Translate the camera up/down
             gameObject.transform.Translate(new Vector3(0, 0, Input.GetAxis("Mouse ScrollWheel") * mouseWheelScrollRate), Space.World);
 
@@ -64,22 +93,33 @@ public class CameraController : MonoBehaviour {
                 gameObject.transform.position = new Vector3(gameObject.transform.position.x, gameObject.transform.position.y, minZoom);
         }
 
-        // Check for arrow keys and move camera around
-        if (Input.GetKey(KeyCode.UpArrow))
+        if (!panDisable)
         {
-            gameObject.transform.Translate(new Vector3(0, keyScrollRate, 0), Space.World);
-        }
-        if (Input.GetKey(KeyCode.DownArrow))
-        {
-            gameObject.transform.Translate(new Vector3(0, -keyScrollRate, 0), Space.World);
-        }
-        if (Input.GetKey(KeyCode.LeftArrow))
-        {
-            gameObject.transform.Translate(new Vector3(-keyScrollRate, 0, 0), Space.World);
-        }
-        if (Input.GetKey(KeyCode.RightArrow))
-        {
-            gameObject.transform.Translate(new Vector3(keyScrollRate, 0, 0), Space.World);
+            // Check for arrow keys and move camera around
+            if (Input.GetKey(KeyCode.UpArrow))
+            {
+                gameObject.transform.Translate(new Vector3(0, keyScrollRate, 0), Space.World);
+                // disable automatic translating to avoid loops
+                targetSet = false;
+            }
+            if (Input.GetKey(KeyCode.DownArrow))
+            {
+                gameObject.transform.Translate(new Vector3(0, -keyScrollRate, 0), Space.World);
+                // disable automatic translating to avoid loops
+                targetSet = false;
+            }
+            if (Input.GetKey(KeyCode.LeftArrow))
+            {
+                gameObject.transform.Translate(new Vector3(-keyScrollRate, 0, 0), Space.World);
+                // disable automatic translating to avoid loops
+                targetSet = false;
+            }
+            if (Input.GetKey(KeyCode.RightArrow))
+            {
+                gameObject.transform.Translate(new Vector3(keyScrollRate, 0, 0), Space.World);
+                // disable automatic translating to avoid loops
+                targetSet = false;
+            }
         }
 
         // Mouse edge of screen scrolling and/or click-drag should go here
@@ -104,18 +144,29 @@ public class CameraController : MonoBehaviour {
     void Update()
     {
         // latch positions on mouse down
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButtonDown(0) && ScrollEnabled())
         {
             mouseDownCamPosition = gameObject.transform.position;
             mouseDownMousePosition = GetMouseBoardPlane();
+            dragging = true;
         }
         // If mouse is held down update camera
-        if (Input.GetMouseButton(0) && !panDisable)
+        if (Input.GetMouseButton(0))
         {
-            Vector2 bPos = GetMouseBoardPlane();
-            gameObject.transform.Translate(new Vector3(mouseDownMousePosition.x - bPos.x,
-                mouseDownMousePosition.y - bPos.y, 0), Space.World);
+            if (dragging)
+            {
+                Vector2 bPos = GetMouseBoardPlane();
+                gameObject.transform.Translate(new Vector3(mouseDownMousePosition.x - bPos.x,
+                    mouseDownMousePosition.y - bPos.y, 0), Space.World);
+                // dragging disables target moving
+                targetSet = false;
+            }
         }
+        else
+        {
+            dragging = false;
+        }
+
         // Limit camera position
         Vector3 pos = gameObject.transform.position;
         if (minLimit)
@@ -129,6 +180,12 @@ public class CameraController : MonoBehaviour {
             if (pos.y > maxPanY) pos.y = maxPanY;
         }
         gameObject.transform.position = pos;
+
+        // any shift to cancel targets
+        if (Input.GetKey(KeyCode.LeftShift) ||
+            Input.GetKey(KeyCode.RightShift)) {
+            targetSet = false;
+        }
 
         // If we are moving to a target position
         if (targetSet)
@@ -208,7 +265,14 @@ public class CameraController : MonoBehaviour {
     {
         CameraController cc = GameObject.FindObjectOfType<CameraController>();
         cc.targetSet = true;
-        cc.camTarget = new Vector3(pos.x, pos.y, -8);
+
+        cc.camTarget = new Vector3(pos.x, pos.y, cc.gameObject.transform.position.z);
+
+        // If not in editor reset zoom
+        if (!Game.Get().editMode)
+        {
+            cc.camTarget.z = -8;
+        }
 
         if (cc.minLimit)
         {
@@ -220,5 +284,19 @@ public class CameraController : MonoBehaviour {
             if (cc.camTarget.x > cc.maxPanX) cc.camTarget.x = cc.maxPanX;
             if (cc.camTarget.y > cc.maxPanY) cc.camTarget.y = cc.maxPanY;
         }
+    }
+
+    public void TakeScreenshot(UnityEngine.Events.UnityAction call)
+    {
+        StartCoroutine(IETakeScreenshot(call));
+    }
+
+    public IEnumerator IETakeScreenshot(UnityEngine.Events.UnityAction call)
+    {
+        yield return new WaitForEndOfFrame();
+        screenShot = new Texture2D(Screen.width, Screen.height, TextureFormat.RGB24, false);
+        screenShot.ReadPixels(new Rect(0, 0, Screen.width, Screen.height), 0, 0);
+        screenShot.Apply();
+        call();
     }
 }

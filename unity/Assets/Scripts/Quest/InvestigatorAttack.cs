@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using Assets.Scripts.Content;
+using Assets.Scripts.UI;
 
 // Window with Investigator attack information
 public class InvestigatorAttack
@@ -34,32 +35,42 @@ public class InvestigatorAttack
     public void AttackOptions()
     {
         // If a dialog window is open we force it closed (this shouldn't happen)
-        foreach (GameObject go in GameObject.FindGameObjectsWithTag("dialog"))
+        foreach (GameObject go in GameObject.FindGameObjectsWithTag(Game.DIALOG))
             Object.Destroy(go);
 
-        DialogBox db = new DialogBox(new Vector2(UIScaler.GetHCenter(-10f), 0.5f), new Vector2(20, 2), ATTACK_PROMPT);
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-        db.AddBorder();
+        UIElement ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-10), 0.5f, 20, 2);
+        ui.SetText(ATTACK_PROMPT);
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        new UIElementBorder(ui);
 
         float offset = 3f;
         foreach (string type in attackType)
         {
             string tmpType = type;
-            // Make first character upper case
-            string nameType = System.Char.ToUpper(type[0]) + type.Substring(1);
-            new TextButton(new Vector2(UIScaler.GetHCenter(-6f), offset), new Vector2(12, 2), 
-                new StringKey(null, nameType, false), delegate { Attack(tmpType); });
+            ui = new UIElement();
+            ui.SetLocation(UIScaler.GetHCenter(-6f), offset, 12, 2);
+            ui.SetText(new StringKey("val", tmpType));
+            ui.SetFontSize(UIScaler.GetMediumFont());
+            ui.SetButton(delegate { Attack(tmpType); });
+            new UIElementBorder(ui);
             offset += 2.5f;
         }
 
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-4f), offset, 8, 2);
         if (monster.damage == monster.GetHealth())
         {
-            new TextButton(new Vector2(UIScaler.GetHCenter(-4f), offset), new Vector2(8, 2), CommonStringKeys.CANCEL, delegate { ; }, Color.gray);
+            ui.SetText(CommonStringKeys.CANCEL, Color.gray);
+            new UIElementBorder(ui, Color.gray);
         }
         else
         {
-            new TextButton(new Vector2(UIScaler.GetHCenter(-4f), offset), new Vector2(8, 2), CommonStringKeys.CANCEL, delegate { Destroyer.Dialog(); });
+            ui.SetText(CommonStringKeys.CANCEL);
+            ui.SetButton(Destroyer.Dialog);
+            new UIElementBorder(ui);
         }
+        ui.SetFontSize(UIScaler.GetMediumFont());
 
         MonsterDialogMoM.DrawMonster(monster);
         MonsterDialogMoM.DrawMonsterHealth(monster, delegate { AttackOptions(); });
@@ -77,24 +88,33 @@ public class InvestigatorAttack
         }
         AttackData attack = validAttacks[Random.Range(0, validAttacks.Count)];
         attackText = attack.text.Translate().Replace("{0}", monster.monsterData.name.Translate());
+        Game.Get().quest.log.Add(new Quest.LogEntry(attackText.Replace("\n", "\\n")));
         Attack();
     }
 
     public void Attack()
     {
         Destroyer.Dialog();
-        DialogBox db = new DialogBox(new Vector2(10, 0.5f), new Vector2(UIScaler.GetWidthUnits() - 20, 8), 
-            new StringKey(null, attackText, false));
-        db.AddBorder();
 
+        UIElement ui = new UIElement();
+        ui.SetLocation(10, 0.5f, UIScaler.GetWidthUnits() - 20, 8);
+        ui.SetText(attackText);
+        new UIElementBorder(ui);
+
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-6), 9, 12, 2);
         if (monster.damage == monster.GetHealth())
         {
-            new TextButton(new Vector2(UIScaler.GetHCenter(-6f), 9f), new Vector2(12, 2), CommonStringKeys.FINISHED, delegate { ; }, Color.grey);
+            ui.SetText(CommonStringKeys.FINISHED, Color.gray);
+            new UIElementBorder(ui, Color.gray);
         }
         else
         {
-            new TextButton(new Vector2(UIScaler.GetHCenter(-6f), 9f), new Vector2(12, 2), CommonStringKeys.FINISHED, delegate { Destroyer.Dialog(); });
+            ui.SetText(CommonStringKeys.FINISHED);
+            ui.SetButton(Destroyer.Dialog);
+            new UIElementBorder(ui);
         }
+        ui.SetFontSize(UIScaler.GetMediumFont());
 
         MonsterDialogMoM.DrawMonster(monster);
         MonsterDialogMoM.DrawMonsterHealth(monster, delegate { Attack(); });

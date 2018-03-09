@@ -3,14 +3,29 @@ using System.Collections;
 using System.Collections.Generic;
 using Assets.Scripts.Content;
 using Assets.Scripts.UI.Screens;
+using Assets.Scripts.UI;
 using ValkyrieTools;
+using Ionic.Zip;
 
 // General controller for the game
 // There is one object of this class and it is used to find most game components
 public class Game : MonoBehaviour {
 
+    public static readonly string MONSTERS = "monsters";
+    public static readonly string HEROSELECT = "heroselect";
+    public static readonly string BOARD = "board";
+    public static readonly string QUESTUI = "questui";
+    public static readonly string EDITOR = "editor";
+    public static readonly string UIPHASE = "uiphase";
+    public static readonly string DIALOG = "dialog";
+    public static readonly string ACTIVATION = "activation";
+    public static readonly string SHOP = "shop";
+
     // This is populated at run time from the text asset
     public string version = "";
+
+    // This is a reference to the Game object
+    public static Game game;
 
     // These components are referenced here for easy of use
     // Data included in content packs
@@ -48,8 +63,15 @@ public class Game : MonoBehaviour {
     // Class log window
     public LogWindow logWindow;
     // Class for stage control UI
-
     public Audio audioControl;
+    // Quest started as test from editor
+    public bool testMode = false;
+
+    // List of things that want to know if the mouse is clicked
+    protected List<IUpdateListener> updateList;
+
+    // Import thread
+    public GameSelectionScreen gameSelect;
 
     // Current language
     public string currentLang;
@@ -58,10 +80,13 @@ public class Game : MonoBehaviour {
     public bool editMode = false;
 
     // This is used all over the place to find the game object.  Game then provides acces to common objects
-    // Note that this is not fast, so shouldn't be used in frame
     public static Game Get()
     {
-        return FindObjectOfType<Game>();
+        if (game == null)
+        {
+            game = FindObjectOfType<Game>();
+        }
+        return game;
     }
 
     // Unity fires off this function
@@ -82,25 +107,38 @@ public class Game : MonoBehaviour {
         config = new ConfigFile();
         GameObject go = new GameObject("audio");
         audioControl = go.AddComponent<Audio>();
+        updateList = new List<IUpdateListener>();
 
         if (config.data.Get("UserConfig") == null)
         {
             // English is the default current language
-            config.data.Add("UserConfig", "currentLang", DictionaryI18n.DEFAULT_LANG);
+            config.data.Add("UserConfig", "currentLang", "English");
             config.Save();
         }
         currentLang = config.data.Get("UserConfig", "currentLang");
 
-        try
+        // On android extract streaming assets for use
+        if (Application.platform == RuntimePlatform.Android)
         {
-            TextAsset localizationFile = Resources.Load("Text/Localization") as TextAsset;
-            LocalizationRead.valkyrieDict = LocalizationRead.ReadFromTextAsset(localizationFile, currentLang);
-            LocalizationRead.changeCurrentLangTo(currentLang);
+            System.IO.Directory.CreateDirectory(ContentData.ContentPath());
+            using (ZipFile jar = ZipFile.Read(Application.dataPath))
+            {
+                foreach (ZipEntry e in jar)
+                {
+                    if (!e.FileName.StartsWith("assets")) continue;
+                    if (e.FileName.StartsWith("assets/bin")) continue;
+
+                    e.Extract(ContentData.ContentPath() + "../..", ExtractExistingFileAction.OverwriteSilently);
+                }
+            }
         }
-        catch (System.Exception e)
+
+        DictionaryI18n valDict = new DictionaryI18n();
+        foreach (string file in System.IO.Directory.GetFiles(ContentData.ContentPath() + "../text", "Localization*.txt"))
         {
-            ValkyrieDebug.Log("Error loading valkyrie localization file:" + e.Message);
+            valDict.AddDataFromFile(file);
         }
+        LocalizationRead.AddDictionary("val", valDict);
 
         roundControl = new RoundController();
 
@@ -111,7 +149,7 @@ public class Game : MonoBehaviour {
         ValkyrieDebug.Log("Valkyrie Version: " + version + System.Environment.NewLine);
 
         // Bring up the Game selector
-        new GameSelectionScreen();
+        gameSelect = new GameSelectionScreen();
     }
 
     // This is called by 'start quest' on the main menu
@@ -176,34 +214,30 @@ public class Game : MonoBehaviour {
         heroCanvas.SetupUI();
 
         // Add a finished button to start the quest
-        TextButton endSelection = new TextButton(
-            new Vector2(UIScaler.GetRight(-9), 
-            UIScaler.GetBottom(-3)), 
-            new Vector2(8, 2), 
-            CommonStringKeys.FINISHED, 
-            delegate { EndSelection(); }, 
-            Color.green);
-
-        endSelection.SetFont(gameType.GetHeaderFont());
-        // Untag as dialog so this isn't cleared away during hero selection
-        endSelection.ApplyTag("heroselect");
+        UIElement ui = new UIElement(Game.HEROSELECT);
+        ui.SetLocation(UIScaler.GetRight(-8.5f), UIScaler.GetBottom(-2.5f), 8, 2);
+        ui.SetText(CommonStringKeys.FINISHED, Color.green);
+        ui.SetFont(gameType.GetHeaderFont());
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        ui.SetButton(EndSelection);
+        new UIElementBorder(ui, Color.green);
 
         // Add a title to the page
-        DialogBox db = new DialogBox(
-            new Vector2(8, 1), 
-            new Vector2(UIScaler.GetWidthUnits() - 16, 3), 
-            new StringKey("val","SELECT",gameType.HeroesName())
-            );
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetLargeFont();
-        db.SetFont(gameType.GetHeaderFont());
-        db.ApplyTag("heroselect");
+        ui = new UIElement(Game.HEROSELECT);
+        ui.SetLocation(8, 1, UIScaler.GetWidthUnits() - 16, 3);
+        ui.SetText(new StringKey("val","SELECT",gameType.HeroesName()));
+        ui.SetFont(gameType.GetHeaderFont());
+        ui.SetFontSize(UIScaler.GetLargeFont());
 
         heroCanvas.heroSelection = new HeroSelection();
 
-        TextButton cancelSelection = new TextButton(new Vector2(1, UIScaler.GetBottom(-3)), new Vector2(8, 2), CommonStringKeys.BACK, delegate { Destroyer.QuestSelect(); }, Color.red);
-        cancelSelection.SetFont(gameType.GetHeaderFont());
-        // Untag as dialog so this isn't cleared away during hero selection
-        cancelSelection.ApplyTag("heroselect");
+        ui = new UIElement(Game.HEROSELECT);
+        ui.SetLocation(0.5f, UIScaler.GetBottom(-2.5f), 8, 2);
+        ui.SetText(CommonStringKeys.BACK, Color.red);
+        ui.SetFont(gameType.GetHeaderFont());
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        ui.SetButton(Destroyer.QuestSelect);
+        new UIElementBorder(ui, Color.red);
     }
     
     // HeroCanvas validates selection and starts quest if everything is good
@@ -216,17 +250,27 @@ public class Game : MonoBehaviour {
             if (h.heroData != null) count++;
         }
         // Starting morale is number of heros
-        quest.vars.SetValue("$morale", count);
+        quest.vars.SetValue("$%morale", count);
         // This validates the selection then if OK starts first quest event
         heroCanvas.EndSection();
     }
 
     public void QuestStartEvent()
     {
+        // Start quest music
+        List<string> music = new List<string>();
+        foreach (AudioData ad in cd.audio.Values)
+        {
+            if (ad.ContainsTrait("quest")) music.Add(ad.file);
+        }
+        audioControl.Music(music);
+
         Destroyer.Dialog();
         // Create the menu button
         new MenuButton();
         new LogButton();
+        new SkillButton();
+        new InventoryButton();
         // Draw next stage button if required
         stageUI = new NextStageButton();
 
@@ -249,10 +293,33 @@ public class Game : MonoBehaviour {
     //  This is here because the editor doesn't get an update, so we are passing through mouse clicks to the editor
     void Update()
     {
+        updateList.RemoveAll(delegate (IUpdateListener o) { return o == null; });
+        for(int i = 0; i < updateList.Count; i++)
+        {
+            if (!updateList[i].Update())
+            {
+                updateList[i] = null;
+            }
+        }
+        updateList.RemoveAll(delegate (IUpdateListener o) { return o == null; });
+
+        if (Input.GetMouseButtonDown(0))
+        {
+            foreach(IUpdateListener iul in updateList)
+            {
+                iul.Click();
+            }
+        }
         // 0 is the left mouse button
         if (qed != null && Input.GetMouseButtonDown(0))
         {
             qed.MouseDown();
+        }
+
+        // 0 is the left mouse button
+        if (qed != null && Input.GetMouseButtonDown(1))
+        {
+            qed.RightClick();
         }
 
         if (quest != null)
@@ -267,21 +334,43 @@ public class Game : MonoBehaviour {
                 logWindow.Update(true);
             }
         }
+
+        if (gameSelect != null)
+        {
+            gameSelect.Update();
+        }
     }
 
-    // This is here to call a function after the frame has been rendered
-    // We use this on import because the import function blocks rendering
-    // and we want to update the display before it starts
-    public void CallAfterFrame(UnityEngine.Events.UnityAction call)
+    public static string AppData()
     {
-        StartCoroutine(CallAfterFrameDelay(call));
+        if (Application.platform == RuntimePlatform.Android)
+        {
+            string appData = Android.GetStorage() + "/Valkyrie";
+            if (appData != null)
+            {
+                ValkyrieDebug.Log("AppData: " + appData);
+                return appData;
+            }
+        }
+        return System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData) + "/Valkyrie";
     }
 
-    private IEnumerator CallAfterFrameDelay(UnityEngine.Events.UnityAction call)
+    public void AddUpdateListener(IUpdateListener obj)
     {
-        yield return new WaitForEndOfFrame();
-        // Fixme this is hacky, the single frame solution doesn't work, we add 1 second
-        yield return new WaitForSeconds(1);
-        call();
+        updateList.Add(obj);
     }
+}
+
+public interface IUpdateListener
+{
+    /// <summary>
+    /// This method is called on click
+    /// </summary>
+    void Click();
+
+    /// <summary>
+    /// This method is called on Unity Update.  Must return false to allow garbage collection.
+    /// </summary>
+    /// <returns>True to keep this in the update list, false to remove.</returns>
+    bool Update();
 }

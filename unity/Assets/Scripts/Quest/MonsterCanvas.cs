@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using Assets.Scripts.Content;
+using Assets.Scripts.UI;
 
 // This class controls the list of monsters
 public class MonsterCanvas : MonoBehaviour
@@ -25,7 +26,7 @@ public class MonsterCanvas : MonoBehaviour
     public void UpdateList()
     {
         // Clean up everything marked as 'monsters'
-        foreach (GameObject go in GameObject.FindGameObjectsWithTag("monsters"))
+        foreach (GameObject go in GameObject.FindGameObjectsWithTag(Game.MONSTERS))
             Object.Destroy(go);
 
         // New list
@@ -37,6 +38,15 @@ public class MonsterCanvas : MonoBehaviour
         foreach (Quest.Monster m in game.quest.monsters)
         {
             icons.Add(new MonsterIcon(m, index++));
+        }
+
+        if (game.quest.monsters.Count - offset < 5)
+        {
+            offset = game.quest.monsters.Count - 5;
+            if (offset < 0)
+            {
+                offset = 0;
+            }
         }
 
         // Draw scoll buttons if required
@@ -60,16 +70,21 @@ public class MonsterCanvas : MonoBehaviour
             return;
         }
         // If at top
+        UIElement ui = new UIElement(Game.MONSTERS);
+        ui.SetLocation(UIScaler.GetRight(-4.25f), 1, 4, 2);
         if (offset == 0)
         {
-            TextButton up = new TextButton(new Vector2(UIScaler.GetRight(-4.25f), 1), new Vector2(4, 2), UP_ARROW, delegate { noAction(); }, Color.gray);
-            up.ApplyTag("monsters");
+            ui.SetText(UP_ARROW, Color.gray);
+            new UIElementBorder(ui, Color.gray);
         }
         else
-        { // Scroll up active
-            TextButton up = new TextButton(new Vector2(UIScaler.GetRight(-4.25f), 1), new Vector2(4, 2), UP_ARROW, delegate { Move(-1); });
-            up.ApplyTag("monsters");
+        {
+            // Scroll up active
+            ui.SetText(UP_ARROW);
+            new UIElementBorder(ui);
+            ui.SetButton(delegate { Move(-1); });
         }
+        ui.SetFontSize(UIScaler.GetMediumFont());
     }
 
     // Draw down button if > 5 monsters, disabled if at bottom
@@ -82,16 +97,21 @@ public class MonsterCanvas : MonoBehaviour
             return;
         }
         // If at buttom
+        UIElement ui = new UIElement(Game.MONSTERS);
+        ui.SetLocation(UIScaler.GetRight(-4.25f), 27, 4, 2);
         if (game.quest.monsters.Count - offset <  6)
         {
-            TextButton down = new TextButton(new Vector2(UIScaler.GetRight(-4.25f), 27), new Vector2(4, 2), DOWN_ARROW, delegate { noAction(); }, Color.gray);
-            down.ApplyTag("monsters");
+            ui.SetText(DOWN_ARROW, Color.gray);
+            new UIElementBorder(ui, Color.gray);
         }
         else
-        { // Scroll down active
-            TextButton down = new TextButton(new Vector2(UIScaler.GetRight(-4.25f), 27), new Vector2(4, 2), DOWN_ARROW, delegate { Move(); });
-            down.ApplyTag("monsters");
+        {
+            // Scroll up active
+            ui.SetText(DOWN_ARROW);
+            new UIElementBorder(ui);
+            ui.SetButton(delegate { Move(); });
         }
+        ui.SetFontSize(UIScaler.GetMediumFont());
     }
 
     // Called by scroll up/down
@@ -167,8 +187,8 @@ public class MonsterCanvas : MonoBehaviour
             }
 
             GameObject mImg = new GameObject("monsterImg" + m.monsterData.name);
-            mImg.tag = "monsters";
-            mImg.transform.parent = game.uICanvas.transform;
+            mImg.tag = Game.MONSTERS;
+            mImg.transform.SetParent(game.uICanvas.transform);
 
             RectTransform trans = mImg.AddComponent<RectTransform>();
             trans.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Top, (3.75f + ((index - offset) * 4.5f)) * UIScaler.GetPixelsPerUnit(), monsterSize * UIScaler.GetPixelsPerUnit());
@@ -188,8 +208,8 @@ public class MonsterCanvas : MonoBehaviour
             {
                 icon.rectTransform.sizeDelta = new Vector2(monsterSize * UIScaler.GetPixelsPerUnit() * 0.83f, monsterSize * UIScaler.GetPixelsPerUnit() * 0.83f);
                 GameObject mImgFrame = new GameObject("monsterFrame" + m.monsterData.name);
-                mImgFrame.tag = "monsters";
-                mImgFrame.transform.parent = game.uICanvas.transform;
+                mImgFrame.tag = Game.MONSTERS;
+                mImgFrame.transform.SetParent(game.uICanvas.transform);
 
                 RectTransform transFrame = mImgFrame.AddComponent<RectTransform>();
                 transFrame.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Top, (3.75f + ((index - offset) * 4.5f)) * UIScaler.GetPixelsPerUnit(), monsterSize * UIScaler.GetPixelsPerUnit());
@@ -206,11 +226,24 @@ public class MonsterCanvas : MonoBehaviour
 
                 if (m.GetHealth() != 0)
                 {
-                    TextButton tb = new TextButton(
-                        new Vector2(UIScaler.GetRight(-2.25f), 5.75f + ((index - offset) * 4.5f)), new Vector2(2, 2), 
-                        new StringKey(null,m.GetHealth().ToString(), false), 
-                        delegate { MonsterDiag(); }, Color.red);
-                    tb.ApplyTag("monsters");
+                    UIElement ui = new UIElement(Game.MONSTERS);
+                    ui.SetLocation(UIScaler.GetRight(-2.25f), 5.75f + ((index - offset) * 4.5f), 2, 2);
+                    ui.SetText(m.GetHealth().ToString(), Color.red);
+                    ui.SetFontSize(UIScaler.GetMediumFont());
+                    ui.SetButton(MonsterDiag);
+                    new UIElementBorder(ui, Color.red);
+                }
+            }
+            else
+            {
+                // MoM
+                if(game.quest.phase == Quest.MoMPhase.investigator)
+                {
+                    DrawAwareness(3.75f + ((index - offset) * 4.5f));
+                }
+                else
+                {
+                    DrawHorror(3.75f + ((index - offset) * 4.5f));
                 }
             }
 
@@ -218,12 +251,12 @@ public class MonsterCanvas : MonoBehaviour
             if (duplicateSprite != null)
             {
                 GameObject mImgDupe = new GameObject("monsterDupe" + m.monsterData.name);
-                mImgDupe.tag = "monsters";
-                mImgDupe.transform.parent = game.uICanvas.transform;
+                mImgDupe.tag = Game.MONSTERS;
+                mImgDupe.transform.SetParent(game.uICanvas.transform);
 
                 RectTransform dupeFrame = mImgDupe.AddComponent<RectTransform>();
                 dupeFrame.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Top, ((monsterSize / 2f) + 3.75f + ((index - offset) * 4.5f)) * UIScaler.GetPixelsPerUnit(), monsterSize * UIScaler.GetPixelsPerUnit() / 2f);
-                dupeFrame.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Right, 0.25f * UIScaler.GetPixelsPerUnit(), monsterSize * UIScaler.GetPixelsPerUnit() / 2f);
+                dupeFrame.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Right, 2.25f * UIScaler.GetPixelsPerUnit(), monsterSize * UIScaler.GetPixelsPerUnit() / 2f);
                 mImgDupe.AddComponent<CanvasRenderer>();
 
                 iconDupe = mImgDupe.AddComponent<UnityEngine.UI.Image>();
@@ -236,6 +269,28 @@ public class MonsterCanvas : MonoBehaviour
             }
 
             Update();
+        }
+
+        public void DrawHorror(float offset)
+        {
+            if (m.monsterData.horror == 0) return;
+            UIElement ui = new UIElement(Game.MONSTERS);
+            ui.SetLocation(UIScaler.GetRight(-2.25f), offset + 2, 2, 2);
+            ui.SetText(m.monsterData.horror.ToString(), Color.blue);
+            ui.SetFontSize(UIScaler.GetMediumFont());
+            ui.SetButton(MonsterDiag);
+            new UIElementBorder(ui, Color.blue);
+        }
+
+        public void DrawAwareness(float offset)
+        {
+            if (m.monsterData.awareness == 0) return;
+            UIElement ui = new UIElement(Game.MONSTERS);
+            ui.SetLocation(UIScaler.GetRight(-2.25f), offset, 2, 2);
+            ui.SetText(m.monsterData.awareness.ToString(), Color.green);
+            ui.SetFontSize(UIScaler.GetMediumFont());
+            ui.SetButton(MonsterDiag);
+            new UIElementBorder(ui, Color.green);
         }
 
         public void Update()
@@ -302,7 +357,7 @@ public class MonsterCanvas : MonoBehaviour
         public void MonsterDiag()
         {
             // If there are any other dialogs open just finish
-            if (GameObject.FindGameObjectWithTag("dialog") != null)
+            if (GameObject.FindGameObjectWithTag(Game.DIALOG) != null)
                 return;
 
             Game game = Game.Get();

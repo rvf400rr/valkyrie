@@ -1,6 +1,9 @@
 ﻿using Assets.Scripts.Content;
 using UnityEngine;
 using FFGAppImport;
+using ValkyrieTools;
+using System.Threading;
+using System.IO;
 
 namespace Assets.Scripts.UI.Screens
 {
@@ -11,17 +14,26 @@ namespace Assets.Scripts.UI.Screens
     {
         FFGImport fcD2E;
         FFGImport fcMoM;
+        protected string importType = "";
+        Thread importThread;
 
         private StringKey D2E_NAME = new StringKey("val","D2E_NAME");
         private StringKey CONTENT_IMPORT = new StringKey("val", "CONTENT_IMPORT");
         private StringKey CONTENT_REIMPORT = new StringKey("val", "CONTENT_REIMPORT");
         private StringKey D2E_APP_NOT_FOUND = new StringKey("val", "D2E_APP_NOT_FOUND");
+        private StringKey D2E_APP_NOT_FOUND_ANDROID = new StringKey("val", "D2E_APP_NOT_FOUND_ANDROID");
         private StringKey MOM_NAME = new StringKey("val", "MOM_NAME");
         private StringKey MOM_APP_NOT_FOUND = new StringKey("val", "MOM_APP_NOT_FOUND");
+        private StringKey MOM_APP_NOT_FOUND_ANDROID = new StringKey("val", "MOM_APP_NOT_FOUND_ANDROID");
         private StringKey CONTENT_IMPORTING = new StringKey("val", "CONTENT_IMPORTING");
 
         // Create a menu which will take up the whole screen and have options.  All items are dialog for destruction.
         public GameSelectionScreen()
+        {
+            Draw();
+        }
+
+        public void Draw()
         {
             // This will destroy all
             Destroyer.Destroy();
@@ -33,13 +45,18 @@ namespace Assets.Scripts.UI.Screens
             // Get the current content for games
             if (Application.platform == RuntimePlatform.OSXPlayer)
             {
-                fcD2E = new FFGImport(FFGAppImport.GameType.D2E, Platform.MacOS, ContentData.ContentPath(), Application.isEditor);
-                fcMoM = new FFGImport(FFGAppImport.GameType.MoM, Platform.MacOS, ContentData.ContentPath(), Application.isEditor);
+                fcD2E = new FFGImport(FFGAppImport.GameType.D2E, Platform.MacOS, Game.AppData() + "/", Application.isEditor);
+                fcMoM = new FFGImport(FFGAppImport.GameType.MoM, Platform.MacOS, Game.AppData() + "/", Application.isEditor);
+            }
+            else if (Application.platform == RuntimePlatform.Android)
+            {
+                fcD2E = new FFGImport(FFGAppImport.GameType.D2E, Platform.Android, Game.AppData() + "/", Application.isEditor);
+                fcMoM = new FFGImport(FFGAppImport.GameType.MoM, Platform.Android, Game.AppData() + "/", Application.isEditor);
             }
             else
             {
-                fcD2E = new FFGImport(FFGAppImport.GameType.D2E, Platform.Windows, ContentData.ContentPath(), Application.isEditor);
-                fcMoM = new FFGImport(FFGAppImport.GameType.MoM, Platform.Windows, ContentData.ContentPath(), Application.isEditor);
+                fcD2E = new FFGImport(FFGAppImport.GameType.D2E, Platform.Windows, Game.AppData() + "/", Application.isEditor);
+                fcMoM = new FFGImport(FFGAppImport.GameType.MoM, Platform.Windows, Game.AppData() + "/", Application.isEditor);
             }
 
             fcD2E.Inspect();
@@ -50,9 +67,9 @@ namespace Assets.Scripts.UI.Screens
             Texture2D newTex = Resources.Load("sprites/banner") as Texture2D;
 
             GameObject banner = new GameObject("banner");
-            banner.tag = "dialog";
+            banner.tag = Game.DIALOG;
 
-            banner.transform.parent = game.uICanvas.transform;
+            banner.transform.SetParent(game.uICanvas.transform);
 
             RectTransform trans = banner.AddComponent<RectTransform>();
             trans.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Top, 1 * UIScaler.GetPixelsPerUnit(), 7f * UIScaler.GetPixelsPerUnit());
@@ -65,8 +82,6 @@ namespace Assets.Scripts.UI.Screens
             image.sprite = bannerSprite;
             image.rectTransform.sizeDelta = new Vector2(18f * UIScaler.GetPixelsPerUnit(), 7f * UIScaler.GetPixelsPerUnit());
 
-            DialogBox db;
-
             Color startColor = Color.white;
             // If we need to import we can't play this type
             if (fcD2E.NeedImport())
@@ -74,27 +89,38 @@ namespace Assets.Scripts.UI.Screens
                 startColor = Color.gray;
             }
             // Draw D2E button
-            TextButton tb = new TextButton(
-                new Vector2((UIScaler.GetWidthUnits() - 30) / 2, 10), 
-                new Vector2(30, 4f), 
-                D2E_NAME, 
-                delegate { D2E(); }, 
-                startColor);
-            tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-            tb.background.GetComponent<UnityEngine.UI.Image>().color = new Color(0, 0.03f, 0f);
+            UIElement ui = new UIElement();
+            ui.SetLocation((UIScaler.GetWidthUnits() - 30) / 2, 10, 30, 4);
+            ui.SetText(D2E_NAME, startColor);
+            ui.SetFontSize(UIScaler.GetMediumFont());
+            ui.SetButton(delegate { D2E(); });
+            ui.SetBGColor(new Color(0, 0.03f, 0f));
+            new UIElementBorder(ui, startColor);
 
             // Draw D2E import button
+            ui = new UIElement();
             if (fcD2E.ImportAvailable())
             {
+                ui.SetLocation((UIScaler.GetWidthUnits() - 14) / 2, 14.2f, 14, 2);
                 StringKey keyText = fcD2E.NeedImport() ? CONTENT_IMPORT : CONTENT_REIMPORT;
-                tb = new TextButton(new Vector2((UIScaler.GetWidthUnits() - 10) / 2, 14.2f), new Vector2(10, 2f), keyText, delegate { Import("D2E"); });
-                tb.background.GetComponent<UnityEngine.UI.Image>().color = new Color(0, 0.03f, 0f);
-
+                ui.SetText(keyText);
+                ui.SetFontSize(UIScaler.GetMediumFont());
+                ui.SetButton(delegate { Import("D2E"); });
+                ui.SetBGColor(new Color(0, 0.03f, 0f));
+                new UIElementBorder(ui);
             }
             else // Import unavailable
             {
-                db = new DialogBox(new Vector2((UIScaler.GetWidthUnits() - 24) / 2, 14.2f), new Vector2(24, 1f), D2E_APP_NOT_FOUND, Color.red);
-                db.AddBorder();
+                ui.SetLocation((UIScaler.GetWidthUnits() - 24) / 2, 14.2f, 24, 1);
+                if (Application.platform == RuntimePlatform.Android)
+                {
+                    ui.SetText(D2E_APP_NOT_FOUND_ANDROID, Color.red);
+                }
+                else
+                {
+                    ui.SetText(D2E_APP_NOT_FOUND, Color.red);
+                }
+                new UIElementBorder(ui, Color.red);
             }
 
             // Draw MoM button
@@ -103,24 +129,47 @@ namespace Assets.Scripts.UI.Screens
             {
                 startColor = Color.gray;
             }
-            tb = new TextButton(new Vector2((UIScaler.GetWidthUnits() - 30) / 2, 19), new Vector2(30, 4f), MOM_NAME, delegate { MoM(); }, startColor);
-            tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-            tb.background.GetComponent<UnityEngine.UI.Image>().color = new Color(0, 0.03f, 0f);
+            ui = new UIElement();
+            ui.SetLocation((UIScaler.GetWidthUnits() - 30) / 2, 19, 30, 4);
+            ui.SetText(MOM_NAME, startColor);
+            ui.SetFontSize(UIScaler.GetMediumFont());
+            ui.SetButton(delegate { MoM(); });
+            ui.SetBGColor(new Color(0, 0.03f, 0f));
+            new UIElementBorder(ui, startColor);
 
             // Draw MoM import button
+            ui = new UIElement();
             if (fcMoM.ImportAvailable())
             {
+                ui.SetLocation((UIScaler.GetWidthUnits() - 14) / 2, 23.2f, 14, 2);
                 StringKey keyText = fcMoM.NeedImport() ? CONTENT_IMPORT : CONTENT_REIMPORT;
-                tb = new TextButton(new Vector2((UIScaler.GetWidthUnits() - 10) / 2, 23.2f), new Vector2(10, 2f), keyText, delegate { Import("MoM"); });
-                tb.background.GetComponent<UnityEngine.UI.Image>().color = new Color(0, 0.03f, 0f);
+                ui.SetText(keyText);
+                ui.SetFontSize(UIScaler.GetMediumFont());
+                ui.SetButton(delegate { Import("MoM"); });
+                ui.SetBGColor(new Color(0, 0.03f, 0f));
+                new UIElementBorder(ui);
             }
             else // Import unavailable
             {
-                db = new DialogBox(new Vector2((UIScaler.GetWidthUnits() - 24) / 2, 23.2f), new Vector2(24, 1f), MOM_APP_NOT_FOUND, Color.red);
-                db.AddBorder();
+                ui.SetLocation((UIScaler.GetWidthUnits() - 24) / 2, 23.2f, 24, 1);
+                if (Application.platform == RuntimePlatform.Android)
+                {
+                    ui.SetText(MOM_APP_NOT_FOUND_ANDROID, Color.red);
+                }
+                else
+                {
+                    ui.SetText(MOM_APP_NOT_FOUND, Color.red);
+                }
+                new UIElementBorder(ui, Color.red);
             }
 
-            new TextButton(new Vector2(1, UIScaler.GetBottom(-3)), new Vector2(8, 2), CommonStringKeys.EXIT, delegate { Exit(); }, Color.red);
+            ui = new UIElement();
+            ui.SetLocation(1, UIScaler.GetBottom(-3), 8, 2);
+            ui.SetText(CommonStringKeys.EXIT, Color.red);
+            ui.SetFontSize(UIScaler.GetMediumFont());
+            ui.SetButton(Exit);
+            ui.SetBGColor(new Color(0, 0.03f, 0f));
+            new UIElementBorder(ui, Color.red);
         }
 
         // Start game as D2E
@@ -130,6 +179,8 @@ namespace Assets.Scripts.UI.Screens
             if (!fcD2E.NeedImport())
             {
                 Game.Get().gameType = new D2EGameType();
+                Texture2D cursor = Resources.Load("sprites/CursorD2E") as Texture2D;
+                Cursor.SetCursor(cursor, Vector2.zero, CursorMode.Auto);
                 loadLocalization();
                 Destroyer.MainMenu();
             }
@@ -139,11 +190,19 @@ namespace Assets.Scripts.UI.Screens
         public void Import(string type)
         {
             Destroyer.Destroy();
-            // Display message
-            DialogBox db = new DialogBox(new Vector2(2, 10), new Vector2(UIScaler.GetWidthUnits() - 4, 2), CONTENT_IMPORTING);
-            db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-            // Perform importing later, to ensure message is displayed first
-            Game.Get().CallAfterFrame(delegate { PerformImport(type); });
+
+            new LoadingScreen(CONTENT_IMPORTING.Translate());
+            importType = type;
+
+            if (type.Equals("D2E"))
+            {
+                importThread = new Thread(new ThreadStart(delegate { fcD2E.Import(); }));
+            }
+            if (type.Equals("MoM"))
+            {
+                importThread = new Thread(new ThreadStart(delegate { fcMoM.Import(); }));
+            }
+            importThread.Start();
         }
 
         // Start game as MoM
@@ -155,6 +214,8 @@ namespace Assets.Scripts.UI.Screens
                 Game.Get().gameType = new MoMGameType();
                 // MoM also has a special reound controller
                 Game.Get().roundControl = new RoundControllerMoM();
+                Texture2D cursor = Resources.Load("sprites/CursorMoM") as Texture2D;
+                Cursor.SetCursor(cursor, Vector2.zero, CursorMode.Auto);
                 loadLocalization();
                 Destroyer.MainMenu();
             }
@@ -163,34 +224,71 @@ namespace Assets.Scripts.UI.Screens
         /// <summary>
         /// After selecting game, we load the localization file.
         /// Deppends on the gameType selected.
-        /// There are two Localization.txt, one for D2E and one for MoM
+        /// There are two Localization files from ffg, one for D2E and one for MoM
         /// </summary>
         private void loadLocalization()
         {
             // After content import, we load the localization file
-            if (LocalizationRead.ffgDict == null)
+            if (LocalizationRead.selectDictionary("ffg") == null)
             {
-                // FFG default language is allways English
-                LocalizationRead.ffgDict = new DictionaryI18n(
-                    System.IO.File.ReadAllLines(Game.Get().gameType.DataDirectory() + "ffg/text/Localization.txt"),
-                    DictionaryI18n.DEFAULT_LANG,
-                    Game.Get().currentLang);
+                DictionaryI18n ffgDict = new DictionaryI18n();
+                foreach (string file in Directory.GetFiles(ContentData.ImportPath() + "/text", "Localization*.txt"))
+                {
+                    ffgDict.AddDataFromFile(file);
+                }
+                LocalizationRead.AddDictionary("ffg", ffgDict);
+
+                // CoSH used for Dunwich Horror data
+                DictionaryI18n cshDict = new DictionaryI18n();
+                foreach (string file in Directory.GetFiles(ContentData.ImportPath() + "/text", "SCENARIO_CULT_OF_SENTINEL_HILL_MAD22_*.txt"))
+                {
+                    cshDict.AddDataFromFile(file);
+                }
+                LocalizationRead.AddDictionary("csh", cshDict);
             }
         }
 
-        // Import (called once message displayed)
-        private void PerformImport(string type)
+        public void Update()
         {
-            if (type.Equals("D2E"))
+            if (importThread == null) return;
+            if (importThread.IsAlive) return;
+            importThread = null;
+            ExtractBundles();
+            // TODO: Delete Obb dir for Android build here
+            Draw();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public void ExtractBundles()
+        {
+            try
             {
-                fcD2E.Import();
+                string importDir = Path.Combine(Game.AppData(), importType + Path.DirectorySeparatorChar + "import");
+                string bundlesFile = Path.Combine(importDir, "bundles.txt");
+                ValkyrieDebug.Log("Loading all bundles from '" + bundlesFile + "'");
+                string[] bundles = File.ReadAllLines(bundlesFile);
+                foreach (string file in bundles)
+                {
+                    AssetBundle bundle = AssetBundle.LoadFromFile(file);
+                    if (bundle == null) continue;
+                    ValkyrieDebug.Log("Loading assets from '" + file + "'");
+                    foreach (TextAsset asset in bundle.LoadAllAssets<TextAsset>())
+                    {
+                        string textDir = Path.Combine(importDir, "text");
+                        Directory.CreateDirectory(textDir);
+                        string f = Path.Combine(importDir, Path.Combine(textDir, asset.name + ".txt"));
+                        ValkyrieDebug.Log("Writing text asset to '" + f + "'");
+                        File.WriteAllText(f, asset.ToString());
+                    }
+                }
             }
-            if (type.Equals("MoM"))
+            catch (System.Exception ex)
             {
-                fcMoM.Import();
+                ValkyrieDebug.Log("ExtractBundles caused " + ex.GetType().Name + ": " + ex.Message + " " + ex.StackTrace);
             }
-            Destroyer.Dialog();
-            new GameSelectionScreen();
+            importType = "";
         }
 
         // Exit Valkyrie

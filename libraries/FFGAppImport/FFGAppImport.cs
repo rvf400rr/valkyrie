@@ -7,7 +7,7 @@ namespace FFGAppImport
 {
     public class FFGImport
     {
-        public static int version = 1;
+        public static int version = 2;
         public GameType type;
         public Platform platform;
         public string path;
@@ -18,7 +18,7 @@ namespace FFGAppImport
         {
             type = t;
             platform = p;
-            path = contentPath;
+            path = contentPath + t.ToString() + "/import";
             editor = e;
         }
 
@@ -55,6 +55,7 @@ namespace FFGAppImport
     {
         Windows,
         MacOS,
-        Linux
+        Linux,
+        Android
     }
 }

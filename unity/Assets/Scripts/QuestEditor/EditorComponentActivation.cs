@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using Assets.Scripts.Content;
+using Assets.Scripts.UI;
 
 public class EditorComponentActivation : EditorComponent
 {
@@ -17,11 +18,12 @@ public class EditorComponentActivation : EditorComponent
 
 
     QuestData.Activation activationComponent;
-    DialogBoxEditable abilityDBE;
-    DialogBoxEditable moveButtonDBE;
-    DialogBoxEditable masterActionsDBE;
-    DialogBoxEditable minionActionsDBE;
-    DialogBoxEditable moveDBE;
+
+    UIElementEditablePaneled abilityUIE;
+    UIElementEditable moveButtonUIE;
+    UIElementEditablePaneled masterActionsUIE;
+    UIElementEditablePaneled minionActionsUIE;
+    UIElementEditablePaneled moveUIE;
 
     public EditorComponentActivation(string nameIn) : base()
     {
@@ -32,190 +34,205 @@ public class EditorComponentActivation : EditorComponent
         Update();
     }
     
-    override public void Update()
+    override public float AddSubComponents(float offset)
     {
-        base.Update();
-        Game game = Game.Get();
-
-        TextButton tb = new TextButton(new Vector2(0, 0), new Vector2(4, 1), 
-            CommonStringKeys.ACTIVATION, delegate { QuestEditorData.TypeSelect(); });
-        tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
-        tb.button.GetComponent<UnityEngine.UI.Text>().alignment = TextAnchor.MiddleRight;
-        tb.ApplyTag("editor");
-
-        tb = new TextButton(new Vector2(4, 0), new Vector2(15, 1), 
-            new StringKey(null, name.Substring("Activation".Length),false), 
-            delegate { QuestEditorData.ListActivation(); });
-        tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
-        tb.button.GetComponent<UnityEngine.UI.Text>().alignment = TextAnchor.MiddleLeft;
-        tb.ApplyTag("editor");
-
-        tb = new TextButton(
-            new Vector2(19, 0), new Vector2(1, 1), CommonStringKeys.E, delegate { Rename(); });
-        tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
-        tb.ApplyTag("editor");
-
         if (game.gameType is MoMGameType)
         {
-            MoMActivation();
+            return MoMActivation(offset);
         }
-        else
-        {
-            Activation();
-        }
+        return D2EActivation(offset);
     }
 
-    public void Activation()
+    public float D2EActivation(float offset)
     {
-        DialogBox db = new DialogBox(new Vector2(0, 1), new Vector2(20, 1), new StringKey("val","X_COLON",ABILITY));
-        db.ApplyTag("editor");
+        UIElement ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(0.5f, offset++, 19, 1);
+        ui.SetText(new StringKey("val", "X_COLON", ABILITY));
 
-        abilityDBE = new DialogBoxEditable(
-            new Vector2(0, 2), new Vector2(20, 8), 
-            activationComponent.ability.Translate(),
-            delegate { UpdateAbility(); });
-        abilityDBE.ApplyTag("editor");
-        abilityDBE.AddBorder();
+        abilityUIE = new UIElementEditablePaneled(Game.EDITOR, scrollArea.GetScrollTransform());
+        abilityUIE.SetLocation(0.5f, offset, 19, 18);
+        abilityUIE.SetText(activationComponent.ability.Translate());
+        offset += abilityUIE.HeightToTextPadding(1);
+        abilityUIE.SetButton(delegate { UpdateAbility(); });
+        new UIElementBorder(abilityUIE);
+        offset += 1;
 
-        db = new DialogBox(new Vector2(0, 10), new Vector2(15, 1), new StringKey("val", "X_COLON", MONSTER_MASTER));
-        db.ApplyTag("editor");
-        TextButton tb = null;
+        ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(0.5f, offset, 14, 1);
+        ui.SetText(new StringKey("val", "X_COLON", MONSTER_MASTER));
+
+        ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(14.5f, offset++, 5, 1);
+        ui.SetButton(delegate { ToggleMasterFirst(); });
+        new UIElementBorder(ui);
         if (activationComponent.masterFirst)
         {
-            tb = new TextButton(new Vector2(15, 10), new Vector2(5, 1), FIRST, delegate { ToggleMasterFirst(); });
+            ui.SetText(FIRST);
         }
         else
         {
-            tb = new TextButton(new Vector2(15, 10), new Vector2(5, 1), NOT_FIRST, delegate { ToggleMasterFirst(); });
+            ui.SetText(NOT_FIRST);
         }
-        tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
-        tb.ApplyTag("editor");
 
-        masterActionsDBE = new DialogBoxEditable(
-            new Vector2(0, 11), new Vector2(20, 8), 
-            activationComponent.masterActions.Translate(true),
-            delegate { UpdateMasterActions(); });
-        masterActionsDBE.ApplyTag("editor");
-        masterActionsDBE.AddBorder();
+        masterActionsUIE = new UIElementEditablePaneled(Game.EDITOR, scrollArea.GetScrollTransform());
+        masterActionsUIE.SetLocation(0.5f, offset, 19, 18);
+        masterActionsUIE.SetText(activationComponent.masterActions.Translate(true));
+        offset += masterActionsUIE.HeightToTextPadding(1);
+        masterActionsUIE.SetButton(delegate { UpdateMasterActions(); });
+        new UIElementBorder(masterActionsUIE);
+        offset += 1;
 
-        db = new DialogBox(new Vector2(0, 19), new Vector2(15, 1), new StringKey("val", "X_COLON", MONSTER_MINION));
-        db.ApplyTag("editor");
+        ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(0.5f, offset, 14, 1);
+        ui.SetText(new StringKey("val", "X_COLON", MONSTER_MINION));
+
+        ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(14.5f, offset++, 5, 1);
+        ui.SetButton(delegate { ToggleMinionFirst(); });
+        new UIElementBorder(ui);
         if (activationComponent.minionFirst)
         {
-            tb = new TextButton(new Vector2(15, 19), new Vector2(5, 1), FIRST, delegate { ToggleMinionFirst(); });
+            ui.SetText(FIRST);
         }
         else
         {
-            tb = new TextButton(new Vector2(15, 19), new Vector2(5, 1), NOT_FIRST, delegate { ToggleMinionFirst(); });
+            ui.SetText(NOT_FIRST);
         }
-        tb.button.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetSmallFont();
-        tb.ApplyTag("editor");
 
-        minionActionsDBE = new DialogBoxEditable(
-            new Vector2(0, 20), new Vector2(20, 8), 
-            activationComponent.minionActions.Translate(true),
-            delegate { UpdateMinionActions(); });
-        minionActionsDBE.ApplyTag("editor");
-        minionActionsDBE.AddBorder();
+        minionActionsUIE = new UIElementEditablePaneled(Game.EDITOR, scrollArea.GetScrollTransform());
+        minionActionsUIE.SetLocation(0.5f, offset, 19, 18);
+        minionActionsUIE.SetText(activationComponent.minionActions.Translate(true));
+        offset += minionActionsUIE.HeightToTextPadding(1);
+        minionActionsUIE.SetButton(delegate { UpdateMinionActions(); });
+        new UIElementBorder(minionActionsUIE);
+
+        return offset + 1;
     }
 
-    public void MoMActivation()
+    public float MoMActivation(float offset)
     {
-        DialogBox db = new DialogBox(new Vector2(0, 1), new Vector2(20, 1), INITIAL_MESSAGE);
-        db.ApplyTag("editor");
+        UIElement ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(0.5f, offset++, 19, 1);
+        ui.SetText(new StringKey("val", "X_COLON", INITIAL_MESSAGE));
 
-        abilityDBE = new DialogBoxEditable(
-            new Vector2(0, 2), new Vector2(20, 8), 
-            activationComponent.ability.Translate(true),
-            delegate { UpdateAbility(); });
-        abilityDBE.ApplyTag("editor");
-        abilityDBE.AddBorder();
+        abilityUIE = new UIElementEditablePaneled(Game.EDITOR, scrollArea.GetScrollTransform());
+        abilityUIE.SetLocation(0.5f, offset, 19, 18);
+        abilityUIE.SetText(activationComponent.ability.Translate(true));
+        offset += abilityUIE.HeightToTextPadding(1);
+        abilityUIE.SetButton(delegate { UpdateAbility(); });
+        new UIElementBorder(abilityUIE);
+        offset += 1;
 
-        db = new DialogBox(new Vector2(0, 10), new Vector2(10, 1), UNABLE_BUTTON);
+        ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(0, offset, 9.5f, 1);
+        ui.SetText(UNABLE_BUTTON);
 
-        moveButtonDBE = new DialogBoxEditable(
-            new Vector2(10, 10), new Vector2(10, 1), 
-            activationComponent.moveButton.Translate(true),
-            delegate { UpdateMoveButton(); });
-        moveButtonDBE.ApplyTag("editor");
-        moveButtonDBE.AddBorder();
+        moveButtonUIE = new UIElementEditable(Game.EDITOR, scrollArea.GetScrollTransform());
+        moveButtonUIE.SetLocation(9.5f, offset, 10, 1);
+        moveButtonUIE.SetText(activationComponent.moveButton.Translate(true));
+        moveButtonUIE.SetSingleLine();
+        moveButtonUIE.SetButton(delegate { UpdateMoveButton(); });
+        new UIElementBorder(moveButtonUIE);
+        offset += 2;
 
-        db = new DialogBox(new Vector2(0, 11), new Vector2(20, 1), ATTACK_MESSAGE);
-        db.ApplyTag("editor");
+        ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(0.5f, offset++, 19, 1);
+        ui.SetText(new StringKey("val", "X_COLON", ATTACK_MESSAGE));
 
-        masterActionsDBE = new DialogBoxEditable(
-            new Vector2(0, 12), new Vector2(20, 8), 
-            activationComponent.masterActions.Translate(true),
-            delegate { UpdateMasterActions(); });
-        masterActionsDBE.ApplyTag("editor");
-        masterActionsDBE.AddBorder();
+        masterActionsUIE = new UIElementEditablePaneled(Game.EDITOR, scrollArea.GetScrollTransform());
+        masterActionsUIE.SetLocation(0.5f, offset, 19, 18);
+        masterActionsUIE.SetText(activationComponent.masterActions.Translate(true));
+        offset += masterActionsUIE.HeightToTextPadding(1);
+        masterActionsUIE.SetButton(delegate { UpdateMasterActions(); });
+        new UIElementBorder(masterActionsUIE);
+        offset += 1;
 
-        db = new DialogBox(new Vector2(0, 20), new Vector2(20, 1), NO_ATTACK_MESSAGE);
-        db.ApplyTag("editor");
+        ui = new UIElement(Game.EDITOR, scrollArea.GetScrollTransform());
+        ui.SetLocation(0.5f, offset++, 19, 1);
+        ui.SetText(new StringKey("val", "X_COLON", NO_ATTACK_MESSAGE));
 
-        moveDBE = new DialogBoxEditable(
-            new Vector2(0, 21), new Vector2(20, 8), 
-            activationComponent.move.Translate(true),
-            delegate { UpdateMove(); });
-        moveDBE.ApplyTag("editor");
-        moveDBE.AddBorder();
+        moveUIE = new UIElementEditablePaneled(Game.EDITOR, scrollArea.GetScrollTransform());
+        moveUIE.SetLocation(0.5f, offset, 19, 8);
+        moveUIE.SetText(activationComponent.move.Translate(true));
+        offset += moveUIE.HeightToTextPadding(1);
+        moveUIE.SetButton(delegate { UpdateMove(); });
+        new UIElementBorder(moveUIE);
+        offset += 1;
+
+        return offset;
     }
 
     public void UpdateAbility()
     {
-        if (!abilityDBE.Text.Equals(""))
+        if (!abilityUIE.Empty() && abilityUIE.Changed())
         {
             //insert the text in the current language
-            LocalizationRead.updateScenarioText(activationComponent.ability_key, abilityDBE.Text);
+            LocalizationRead.updateScenarioText(activationComponent.ability_key, abilityUIE.GetText());
+            if (!abilityUIE.HeightAtTextPadding(1))
+            {
+                Update();
+            }
         }
     }
 
     public void UpdateMoveButton()
     {
-        if (!moveButtonDBE.Text.Equals(""))
+        if (moveButtonUIE.Empty())
+        {
+            LocalizationRead.dicts["qst"].Remove(activationComponent.movebutton_key);
+        }
+        else if (moveButtonUIE.Changed())
         {
             //insert the text in the current language
-            LocalizationRead.updateScenarioText(activationComponent.movebutton_key, moveButtonDBE.Text);
-        }
-        else
-        {
-            LocalizationRead.scenarioDict.Remove(activationComponent.movebutton_key);
+            LocalizationRead.updateScenarioText(activationComponent.movebutton_key, moveButtonUIE.GetText());
         }
     }
 
     public void UpdateMasterActions()
     {
-        if (!masterActionsDBE.Text.Equals(""))
+        if (masterActionsUIE.Empty())
         {
-            LocalizationRead.updateScenarioText(activationComponent.master_key, masterActionsDBE.Text);
+            LocalizationRead.dicts["qst"].Remove(activationComponent.master_key);
         }
-        else
+        else if (masterActionsUIE.Changed())
         {
-            LocalizationRead.scenarioDict.Remove(activationComponent.master_key);
+            LocalizationRead.updateScenarioText(activationComponent.master_key, masterActionsUIE.GetText());
+        }
+        if (!masterActionsUIE.HeightAtTextPadding(1))
+        {
+            Update();
         }
     }
 
     public void UpdateMinionActions()
     {
-        if (!minionActionsDBE.Text.Equals(""))
+        if (minionActionsUIE.Empty())
         {
-            LocalizationRead.updateScenarioText(activationComponent.minion_key, minionActionsDBE.Text);
+            LocalizationRead.dicts["qst"].Remove(activationComponent.minion_key);
         }
-        else
+        else if (minionActionsUIE.Changed())
         {
-            LocalizationRead.scenarioDict.Remove(activationComponent.minion_key);
+            LocalizationRead.updateScenarioText(activationComponent.minion_key, minionActionsUIE.GetText());
+        }
+        if (!minionActionsUIE.HeightAtTextPadding(1))
+        {
+            Update();
         }
     }
 
     public void UpdateMove()
     {
-        if (!moveDBE.Text.Equals(""))
+        if (moveUIE.Empty())
         {
-            LocalizationRead.updateScenarioText(activationComponent.move_key, moveDBE.Text);
+            LocalizationRead.dicts["qst"].Remove(activationComponent.move_key);
         }
-        else
+        else if (moveUIE.Changed())
         {
-            LocalizationRead.scenarioDict.Remove(activationComponent.move_key);
+            LocalizationRead.updateScenarioText(activationComponent.move_key, moveUIE.GetText());
+        }
+        if (!moveUIE.HeightAtTextPadding(1))
+        {
+            Update();
         }
     }
 

@@ -1,37 +1,38 @@
 ﻿using UnityEngine;
 using System.Collections;
 using Assets.Scripts.Content;
+using Assets.Scripts.UI;
 
 // Used to display remaining morale
 public class MoraleDisplay {
-    DialogBox md;
+    UIElement md;
 
     // Construct and display
     public MoraleDisplay()
     {
         Game game = Game.Get();
-        int morale = Mathf.RoundToInt(game.quest.vars.GetValue("$morale"));
+        int morale = Mathf.RoundToInt(game.quest.vars.GetValue("$%morale"));
         if (morale < 0)
         {
             morale = 0;
         }
-        md = new DialogBox(new Vector2(0.75f, 0.5f), new Vector2(3, 3), morale, Color.red);
-        md.textObj.tag = "questui";
-        md.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetLargeFont();
-        md.background.tag = "questui";
-        md.AddBorder();
+        md = new UIElement(Game.QUESTUI);
+        md.SetLocation(0.75f, 0.5f, 3, 3);
+        md.SetText(morale.ToString(), Color.red);
+        md.SetFontSize(UIScaler.GetLargeFont());
+        new UIElementBorder(md, Color.red);
     }
 
     // Update must be called if the morale is changed
     public void Update()
     {
         Game game = Game.Get();
-        int morale = Mathf.RoundToInt(game.quest.vars.GetValue("$morale"));
+        int morale = Mathf.RoundToInt(game.quest.vars.GetValue("$%morale"));
         if (morale < 0)
         {
             morale = 0;
         }
-        md.textObj.GetComponent<UnityEngine.UI.Text>().text = morale.ToString();
+        md.SetText(morale.ToString(), Color.red);
     }
 }
 

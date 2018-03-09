@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using Assets.Scripts.Content;
+using Assets.Scripts.UI;
 using ValkyrieTools;
 
 // Class for creation of a dialog window with buttons and handling button press
@@ -21,6 +22,7 @@ public class DialogWindow {
         eventData = e;
         heroList = new List<Quest.Hero>();
         Game game = Game.Get();
+        text = eventData.GetText();
 
         // hero list can be populated from another event
         if (!eventData.qEvent.heroListName.Equals(""))
@@ -38,38 +40,40 @@ public class DialogWindow {
                 {
                     h.selected = true;
                 }
-                // Update selection status
-                game.heroCanvas.UpdateStatus();
             }
         }
+        // Update selection status
+        game.heroCanvas.UpdateStatus();
 
-        if (eventData.qEvent.quota > 0)
+        if (eventData.qEvent.quota > 0 || eventData.qEvent.quotaVar.Length > 0)
         {
+            if (eventData.qEvent.quotaVar.Length > 0)
+            {
+                quota = Mathf.RoundToInt(game.quest.vars.GetValue(eventData.qEvent.quotaVar));
+            }
             CreateQuotaWindow();
         }
         else
         {
             CreateWindow();
         }
+
+        DrawItem();
     }
 
     public void CreateWindow()
     {
         // Draw text
-        text = eventData.GetText();
-        DialogBox db = new DialogBox(new Vector2(UIScaler.GetHCenter(-14f), 0.5f), new Vector2(28, 8), 
-            new StringKey(null, text, false));
-        float offset = (db.textObj.GetComponent<UnityEngine.UI.Text>().preferredHeight / UIScaler.GetPixelsPerUnit()) + 1;
-        db.Destroy();
-        
+        float offset = UIElement.GetStringHeight(text, 28);
         if (offset < 4)
         {
             offset = 4;
         }
 
-        db = new DialogBox(new Vector2(UIScaler.GetHCenter(-14f), 0.5f), new Vector2(28, offset), 
-            new StringKey(null, text, false));
-        db.AddBorder();
+        UIElement ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-14f), 0.5f, 28, offset);
+        ui.SetText(text);
+        new UIElementBorder(ui);
         offset += 1f;
 
         // Determine button size
@@ -81,9 +85,7 @@ public class DialogWindow {
         List<DialogWindow.EventButton> buttons = eventData.GetButtons();
         foreach (EventButton eb in buttons)
         {
-            db = new DialogBox(new Vector2(UIScaler.GetHCenter(-14f), 0.5f), new Vector2(28, offset), eb.GetLabel());
-            db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-            float length = (db.textObj.GetComponent<UnityEngine.UI.Text>().preferredWidth / UIScaler.GetPixelsPerUnit()) + 1;
+            float length = UIElement.GetStringWidth(eb.GetLabel().Translate(), UIScaler.GetMediumFont());
             if (length > buttonWidth)
             {
                 buttonWidth = length;
@@ -91,65 +93,132 @@ public class DialogWindow {
                 hOffsetCancel = UIScaler.GetHCenter(-4);
                 offsetCancel = offset + (2.5f * buttons.Count);
             }
-            db.Destroy();
         }
 
         int num = 1;
         foreach (EventButton eb in buttons)
         {
             int numTmp = num++;
-            new TextButton(new Vector2(hOffset, offset), new Vector2(buttonWidth, 2), 
-                eb.GetLabel(), delegate { onButton(numTmp); }, eb.colour);
+            ui = new UIElement();
+            ui.SetLocation(hOffset, offset, buttonWidth, 2);
+            ui.SetText(eb.GetLabel(), eb.colour);
+            ui.SetFontSize(UIScaler.GetMediumFont());
+            ui.SetButton(delegate { onButton(numTmp); });
+            new UIElementBorder(ui, eb.colour);
             offset += 2.5f;
         }
 
         // Do we have a cancel button?
         if (eventData.qEvent.cancelable)
         {
-            new TextButton(new Vector2(hOffsetCancel, offsetCancel), new Vector2(8f, 2), CommonStringKeys.CANCEL, delegate { onCancel(); });
+            ui = new UIElement();
+            ui.SetLocation(hOffsetCancel, offsetCancel, 8, 2);
+            ui.SetText(CommonStringKeys.CANCEL);
+            ui.SetFontSize(UIScaler.GetMediumFont());
+            ui.SetButton(onCancel);
+            new UIElementBorder(ui);
         }
     }
 
     public void CreateQuotaWindow()
     {
         // Draw text
-        DialogBox db = new DialogBox(new Vector2(10, 0.5f), new Vector2(UIScaler.GetWidthUnits() - 20, 8), 
-            new StringKey(null, eventData.GetText(),false));
-        db.AddBorder();
+        float offset = UIElement.GetStringHeight(text, 28);
+        if (offset < 4)
+        {
+            offset = 4;
+        }
 
+        UIElement ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-14f), 0.5f, 28, offset);
+        ui.SetText(text);
+        new UIElementBorder(ui);
+        offset += 1;
+
+        ui = new UIElement();
+        ui.SetLocation(11, offset, 2, 2);
+        new UIElementBorder(ui);
         if (quota == 0)
         {
-            new TextButton(new Vector2(11, 9f), new Vector2(2f, 2f), CommonStringKeys.MINUS, delegate { ; }, Color.grey);
+            ui.SetText(CommonStringKeys.MINUS, Color.grey);
         }
         else
         {
-            new TextButton(new Vector2(11, 9f), new Vector2(2f, 2f), CommonStringKeys.MINUS, delegate { quotaDec(); }, Color.white);
+            ui.SetText(CommonStringKeys.MINUS);
+            ui.SetButton(quotaDec);
         }
+        ui.SetFontSize(UIScaler.GetMediumFont());
 
-        db = new DialogBox(new Vector2(14, 9f), new Vector2(2f, 2f), quota);
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
-        db.AddBorder();
+        ui = new UIElement();
+        ui.SetLocation(14, offset, 2, 2);
+        ui.SetText(quota.ToString());
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        new UIElementBorder(ui);
 
+        ui = new UIElement();
+        ui.SetLocation(17, offset, 2, 2);
+        new UIElementBorder(ui);
         if (quota >= 10)
         {
-            new TextButton(new Vector2(17, 9f), new Vector2(2f, 2f), CommonStringKeys.PLUS, delegate { ; }, Color.grey);
+            ui.SetText(CommonStringKeys.PLUS, Color.grey);
         }
         else
         {
-            new TextButton(new Vector2(17, 9f), new Vector2(2f, 2f), CommonStringKeys.PLUS, delegate { quotaInc(); }, Color.white);
+            ui.SetText(CommonStringKeys.PLUS);
+            ui.SetButton(quotaInc);
         }
-
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        
         // Only one button, action depends on quota
-        new TextButton(
-            new Vector2(UIScaler.GetWidthUnits() - 19, 9f), new Vector2(8f, 2), 
-            eventData.GetButtons()[0].GetLabel(), delegate { onQuota(); }, Color.white);
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetWidthUnits() - 19, offset, 8, 2);
+        ui.SetText(eventData.GetButtons()[0].GetLabel());
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        ui.SetButton(onQuota);
+        new UIElementBorder(ui);
 
         // Do we have a cancel button?
         if (eventData.qEvent.cancelable)
         {
-            new TextButton(new Vector2(UIScaler.GetHCenter(-4f), 11.5f), new Vector2(8f, 2), CommonStringKeys.CANCEL, delegate { onCancel(); });
+            ui = new UIElement();
+            ui.SetLocation(UIScaler.GetHCenter(-4f), offset + 2.5f, 8, 2);
+            ui.SetText(CommonStringKeys.CANCEL);
+            ui.SetFontSize(UIScaler.GetMediumFont());
+            ui.SetButton(onCancel);
+            new UIElementBorder(ui);
         }
+    }
 
+    public void DrawItem()
+    {
+        if (eventData.qEvent.highlight) return;
+
+        string item = "";
+        int items = 0;
+        foreach (string s in eventData.qEvent.addComponents)
+        {
+            if (s.IndexOf("QItem") == 0)
+            {
+                item = s;
+                items++;
+            }
+        }
+        if (items != 1) return;
+
+        Game game = Game.Get();
+
+        if (!game.quest.itemSelect.ContainsKey(item)) return;
+
+        Texture2D tex = ContentData.FileToTexture(game.cd.items[game.quest.itemSelect[item]].image);
+        Sprite sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), Vector2.zero, 1, 0, SpriteMeshType.FullRect);
+
+        UIElement ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-21), 0.5f, 6, 6);
+        ui.SetImage(sprite);
+
+        ui = new UIElement();
+        ui.SetLocation(UIScaler.GetHCenter(-22), 6.5f, 8, 1);
+        ui.SetText(game.cd.items[game.quest.itemSelect[item]].name);
     }
 
     public void quotaDec()
@@ -169,6 +238,13 @@ public class DialogWindow {
     public void onQuota()
     {
         Game game = Game.Get();
+        if (eventData.qEvent.quotaVar.Length > 0)
+        {
+            game.quest.vars.SetValue(eventData.qEvent.quotaVar, quota);
+            onButton(1);
+            return;
+        }
+        
         if (game.quest.eventQuota.ContainsKey(eventData.qEvent.sectionName))
         {
             game.quest.eventQuota[eventData.qEvent.sectionName] += quota;
@@ -284,7 +360,7 @@ public class DialogWindow {
 
         public StringKey GetLabel()
         {
-            return new StringKey(null, EventManager.SymbolReplace(label.Translate()), false);
+            return new StringKey(null, EventManager.OutputSymbolReplace(label.Translate()), false);
         }
     }
 }

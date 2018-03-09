@@ -1,4 +1,5 @@
 ﻿using Assets.Scripts.Content;
+using Assets.Scripts.UI;
 using UnityEngine;
 
 // Window with Monster activation
@@ -25,92 +26,100 @@ public class ActivateDialog {
         Destroyer.Dialog();
 
         // ability box - name header
-        TextButton tb = new TextButton(
-            new Vector2(15, 0.5f), 
-            new Vector2(UIScaler.GetWidthUnits() - 30, 2), 
-            monster.monsterData.name,
-            delegate { new InfoDialog(monster); });
-        tb.ApplyTag("activation");
+        UIElement ui = new UIElement(Game.ACTIVATION);
+        ui.SetLocation(15, 0.5f, UIScaler.GetWidthUnits() - 30, 2);
+        ui.SetText(monster.monsterData.name);
+        ui.SetButton(delegate { new InfoDialog(monster); });
+        ui.SetFontSize(UIScaler.GetMediumFont());
+        new UIElementBorder(ui);
 
-        DialogBox db = null;
         float offset = 2.5f;
         if (monster.currentActivation.effect.Length > 0)
         {
             string effect = monster.currentActivation.effect.Replace("\\n", "\n");
             // ability text
-            db = new DialogBox(new Vector2(10, offset), new Vector2(UIScaler.GetWidthUnits() - 20, 4), 
-                new StringKey(null, effect, false));
-            db.AddBorder();
-            db.ApplyTag("activation");
+            ui = new UIElement(Game.ACTIVATION);
+            ui.SetLocation(10, offset, UIScaler.GetWidthUnits() - 20, 4);
+            ui.SetText(effect);
+            new UIElementBorder(ui);
             offset += 4.5f;
         }
 
-        // Activation box
-        string activationText = "";
-        // Create header
+        // Activation box  header
+        ui = new UIElement(Game.ACTIVATION);
+        ui.SetLocation(15, offset, UIScaler.GetWidthUnits() - 30, 2);
         if (singleStep)
         {
-            db = new DialogBox(new Vector2(15, offset), new Vector2(UIScaler.GetWidthUnits() - 30, 2), ACTIONS);
+            ui.SetText(ACTIONS);
+            new UIElementBorder(ui);
         }
         else if (master)
         {
-            db = new DialogBox(new Vector2(15, offset), new Vector2(UIScaler.GetWidthUnits() - 30, 2), MONSTER_MASTER, Color.red);
+            ui.SetText(MONSTER_MASTER, Color.red);
+            new UIElementBorder(ui, Color.red);
         }
         else
         {
-            db = new DialogBox(new Vector2(15, offset), new Vector2(UIScaler.GetWidthUnits() - 30, 2), MONSTER_MINION);
+            ui.SetText(MONSTER_MINION);
+            new UIElementBorder(ui);
         }
-
-        if (master)
-        {
-            activationText = EventManager.SymbolReplace(monster.currentActivation.ad.masterActions.Translate());
-        }
-        else
-        {
-            activationText = EventManager.SymbolReplace(monster.currentActivation.ad.minionActions.Translate());
-        }
-        db.AddBorder();
-        db.ApplyTag("activation");
-        db.textObj.GetComponent<UnityEngine.UI.Text>().fontSize = UIScaler.GetMediumFont();
+        ui.SetFontSize(UIScaler.GetMediumFont());
         offset += 2;
 
-        // Create activation text box
-        db = new DialogBox(new Vector2(10, offset), new Vector2(UIScaler.GetWidthUnits() - 20, 7),
-            new StringKey(null, activationText, false));
-        if (master && !singleStep)
+        // Activation box
+        string activationText = "";
+        if (master)
         {
-            db.AddBorder(Color.red);
+            activationText = monster.currentActivation.masterActions;
         }
         else
         {
-            db.AddBorder();
+            activationText = monster.currentActivation.minionActions;
         }
-        db.ApplyTag("activation");
+
+        // Create activation text box
+        ui = new UIElement(Game.ACTIVATION);
+        ui.SetLocation(10, offset, UIScaler.GetWidthUnits() - 20, 7);
+        ui.SetText(activationText);
+        if (master && !singleStep)
+        {
+            new UIElementBorder(ui, Color.red);
+        }
+        else
+        {
+            new UIElementBorder(ui);
+        }
 
         offset += 7.5f;
 
         // Create finished button
+        ui = new UIElement(Game.ACTIVATION);
+        ui.SetLocation(15, offset, UIScaler.GetWidthUnits() - 30, 2);
+        ui.SetButton(activated);
         if (singleStep)
         {
-            tb = new TextButton(new Vector2(15, offset), new Vector2(UIScaler.GetWidthUnits() - 30, 2), ACTIVATED, delegate { activated(); });
+            ui.SetText(ACTIVATED);
+            new UIElementBorder(ui);
         }
         else if (master)
         {
-            tb = new TextButton(new Vector2(15, offset), new Vector2(UIScaler.GetWidthUnits() - 30, 2), new StringKey("val","X_ACTIVATED",MONSTER_MASTER ), delegate { activated(); }, Color.red);
+            ui.SetText(new StringKey("val", "X_ACTIVATED", MONSTER_MASTER), Color.red);
+            new UIElementBorder(ui, Color.red);
         }
         else
         {
-            tb = new TextButton(new Vector2(15, offset), new Vector2(UIScaler.GetWidthUnits() - 30, 2), new StringKey("val", "X_ACTIVATED", MONSTER_MINION), delegate { activated(); });
+            ui.SetText(new StringKey("val", "X_ACTIVATED", MONSTER_MINION));
+            new UIElementBorder(ui);
         }
-        tb.ApplyTag("activation");
+        ui.SetFontSize(UIScaler.GetMediumFont());
     }
 
     virtual public void activated()
     {
         // Disable if there is a menu open
-        if (GameObject.FindGameObjectWithTag("dialog") != null) return;
+        if (GameObject.FindGameObjectWithTag(Game.DIALOG) != null) return;
 
-        foreach (GameObject go in GameObject.FindGameObjectsWithTag("activation"))
+        foreach (GameObject go in GameObject.FindGameObjectsWithTag(Game.ACTIVATION))
             Object.Destroy(go);
         Game.Get().roundControl.MonsterActivated();
     }

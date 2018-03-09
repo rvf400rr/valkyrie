@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using Assets.Scripts.Content;
+using Assets.Scripts.UI.Screens;
 
 // This class is for drawing hero images on the screen
 public class HeroCanvas : MonoBehaviour {
@@ -60,7 +61,7 @@ public class HeroCanvas : MonoBehaviour {
 
         GameObject heroFrame = new GameObject("heroFrame" + heroName);
         heroFrame.tag = "herodisplay";
-        heroFrame.transform.parent = game.uICanvas.transform;
+        heroFrame.transform.SetParent(game.uICanvas.transform);
         RectTransform transFrame = heroFrame.AddComponent<RectTransform>();
 
         transFrame.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Top, (0.25f + offset) * UIScaler.GetPixelsPerUnit(), heroSize * UIScaler.GetPixelsPerUnit());
@@ -79,11 +80,18 @@ public class HeroCanvas : MonoBehaviour {
 
         GameObject heroImg = new GameObject("heroImg" + heroName);
         heroImg.tag = "herodisplay";
-        heroImg.transform.parent = game.uICanvas.transform;
+        heroImg.transform.SetParent(game.uICanvas.transform);
         RectTransform trans = heroImg.AddComponent<RectTransform>();
 
         trans.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Top, (0.25f + offset) * UIScaler.GetPixelsPerUnit(), heroSize * UIScaler.GetPixelsPerUnit());
-        offset += heroSize + 0.5f;
+        if (game.quest.heroes.Count > 5)
+        {
+            offset += 22f / game.quest.heroes.Count;
+        }
+        else
+        {
+            offset += heroSize + 0.5f;
+        }
         trans.SetInsetAndSizeFromParentEdge(RectTransform.Edge.Left, 0.25f * UIScaler.GetPixelsPerUnit(), heroSize * UIScaler.GetPixelsPerUnit());
         heroImg.AddComponent<CanvasRenderer>();
         UnityEngine.UI.Image image = heroImg.AddComponent<UnityEngine.UI.Image>();
@@ -219,7 +227,7 @@ public class HeroCanvas : MonoBehaviour {
         }
 
         // If there are any other dialogs
-        if (GameObject.FindGameObjectWithTag("dialog") != null)
+        if (GameObject.FindGameObjectWithTag(Game.DIALOG) != null)
         {
             // Check if we are in a hero selection dialog
             if (game.quest.eManager.currentEvent != null && game.quest.eManager.currentEvent.qEvent.maxHeroes != 0)
@@ -235,7 +243,10 @@ public class HeroCanvas : MonoBehaviour {
         // We are in game and a valid hero was selected
         if (game.quest.heroesSelected && target.heroData != null)
         {
-            new HeroDialog(target);
+            if (!game.quest.UIItemsPresent())
+            {
+                new HeroDialog(target);
+            }
         }
     }
 
@@ -252,13 +263,19 @@ public class HeroCanvas : MonoBehaviour {
         Game game = Game.Get();
         foreach (Quest.Hero h in game.quest.heroes)
         {
-            if (h.heroData != null) heroCount++;
+            if (h.heroData != null)
+            {
+                heroCount++;
+                // Create variable to value 1 for each selected Hero
+                game.quest.vars.SetValue("#" + h.heroData.sectionName, 1);
+                
+            }
         }
 
         // Check for validity
-        if (heroCount < 2) return;
+        if (heroCount < game.quest.qd.quest.minHero) return;
 
-        foreach (GameObject go in GameObject.FindGameObjectsWithTag("heroselect"))
+        foreach (GameObject go in GameObject.FindGameObjectsWithTag(Game.HEROSELECT))
             Object.Destroy(go);
         heroSelection = null;
 
@@ -287,25 +304,21 @@ public class HeroCanvas : MonoBehaviour {
         if (!game.gameType.DisplayHeroes())
         {
             Clean();
+            new InvestigatorItems();
+        }
+        else
+        {
+            // Pick class
         }
 
         // Draw morale if required
-        if (game.gameType.DisplayMorale())
+        if (game.gameType is D2EGameType)
         {
-            game.moraleDisplay = new MoraleDisplay();
-            game.QuestStartEvent();
+            new ClassSelectionScreen();
         }
         else
         {
             new InvestigatorItems();
         }
-
-        List<string> music = new List<string>();
-        foreach (AudioData ad in game.cd.audio.Values)
-        {
-            if (ad.ContainsTrait("quest")) music.Add(ad.file);
-        }
-        game.audioControl.Music(music);
-
     }
 }
