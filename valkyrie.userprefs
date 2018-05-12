@@ -1,18 +1,39 @@
 ﻿<Properties StartupItem="Assembly-CSharp.csproj">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" PreferredExecutionTarget="Unity.Instance.Unity Editor" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="Assets/Scripts/Content/LocalizationRead.cs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="Assets/Scripts/Game.cs">
     <Files>
-      <File FileName="Assets/Scripts/Content/CommonStringKeys.cs" Line="1" Column="1" />
+      <File FileName="Assets/Scripts/Quest/ActivateDialogMoM.cs" Line="1" Column="1" />
+      <File FileName="Assets/Resources/version.txt" Line="1" Column="1" />
+      <File FileName="Assets/Scripts/Content/CommonStringKeys.cs" Line="61" Column="1" />
       <File FileName="Assets/Scripts/Campaign/Campaign.cs" Line="1" Column="1" />
       <File FileName="Assets/Scripts/Content/AssetImport/AppFinder.cs" Line="1" Column="1" />
       <File FileName="Assets/Scripts/Content/AssetImport/Texture2D.cs" Line="1" Column="1" />
-      <File FileName="Assets/Scripts/Content/EntryI18n.cs" Line="1" Column="1" />
+      <File FileName="Assets/Scripts/Content/EntryI18n.cs" Line="17" Column="1" />
       <File FileName="Assets/Scripts/Content/AssetImport/MoMFinder.cs" Line="1" Column="1" />
-      <File FileName="Assets/Scripts/Content/LocalizationRead.cs" Line="1" Column="1" />
+      <File FileName="Assets/Scripts/Content/LocalizationRead.cs" Line="45" Column="1" />
+      <File FileName="Assets/Scripts/Content/DictionaryI18n.cs" Line="66" Column="1" />
+      <File FileName="Assets/Scripts/ConfigFile.cs" Line="1" Column="1" />
+      <File FileName="Assets/Scripts/ValkyrieDebug.cs" Line="1" Column="1" />
+      <File FileName="Assets/Scripts/SaveManager.cs" Line="1" Column="1" />
+      <File FileName="Assets/Scripts/GameType.cs" Line="1" Column="1" />
+      <File FileName="Assets/Scripts/Game.cs" Line="71" Column="1" />
+      <File FileName="Assets/Scripts/Content/IniRead.cs" Line="280" Column="1" />
+      <File FileName="Assets/Scripts/Content/StringKey.cs" Line="45" Column="1" />
+      <File FileName="Assets/Resources/Text/Localization.txt" Line="1" Column="1" />
+      <File FileName="Assets/Scripts/UI/Screens/GameSelectionScreen.cs" Line="26" Column="1" />
+      <File FileName="Assets/Scripts/Destroyer.cs" Line="28" Column="1" />
+      <File FileName="Assets/Scripts/UI/DialogBox.cs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
-    <BreakpointStore />
+    <BreakpointStore>
+      <Breakpoint file="/Users/iwai/src/valkyrie/Assets/Scripts/Content/LocalizationRead.cs" line="24" column="1" />
+      <Breakpoint file="/Users/iwai/src/valkyrie/Assets/Scripts/Game.cs" line="70" column="1" />
+      <Breakpoint file="/Users/iwai/src/valkyrie/Assets/Scripts/Content/LocalizationRead.cs" line="41" column="1" />
+      <Breakpoint file="/Users/iwai/src/valkyrie/Assets/Scripts/Content/CommonStringKeys.cs" line="61" column="1" />
+      <Breakpoint file="/Users/iwai/src/valkyrie/Assets/Scripts/UI/Screens/GameSelectionScreen.cs" line="11" column="1" />
+      <Breakpoint file="/Users/iwai/src/valkyrie/Assets/Scripts/Destroyer.cs" line="28" column="1" />
+    </BreakpointStore>
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
   <MonoDevelop.Ide.DebuggingService.PinnedWatches />
 </Properties>
